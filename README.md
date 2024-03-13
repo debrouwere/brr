@@ -92,7 +92,7 @@ belgium |>
 ```
 
 By default, `poststratify` will accept missingness as a valid stratification
-level, so you might get cells like ('Female', '<NA>'). This is not always a good
+level, so you might get cells like `('Female', '<NA>')`. This is not always a good
 idea, both because it it can produce small cells (if there is not much
 missingness) and because missingness on a particular factor may have many causes
 and does not always represent a homogeneous category. It is often a good idea to
