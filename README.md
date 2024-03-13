@@ -22,7 +22,7 @@ that it can be used to explain the technical intricacies of PISA analysis for
 those who wish to understand how analyses with plausible values and balanced
 repeated replications work under the hood.
 
-## Usage
+### Usage
 
 ```r
 library('arrow')
