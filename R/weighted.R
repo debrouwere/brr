@@ -168,8 +168,8 @@ weighted_scale <- function(x, weights, na_rm=TRUE) {
 #'
 #' @export
 weighted_scale_by <- function(x, x_target, weights, na_rm=TRUE) {
-  mu <- weighted_mean(x_target, weights, na.rm=na_rm)
-  sigma <- weighted_sd(x_target, weights, na.rm=na_rm)
+  mu <- weighted_mean(x_target, weights, na_rm=na_rm)
+  sigma <- weighted_sd(x_target, weights, na_rm=na_rm)
   (x - mu) / sigma
 }
 
