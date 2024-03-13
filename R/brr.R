@@ -1,11 +1,11 @@
-library('tidyverse')
-library('tidyselect')
-library('rlang')
-library('broom')
-library('cli')
+library("tidyverse")
+library("tidyselect")
+library("rlang")
+library("broom")
+library("cli")
 
 is_tidy <- function(data) {
-  is_tibble(data) & all(c('term', 'estimate') %in% colnames(data))
+  is_tibble(data) & all(c("term", "estimate") %in% colnames(data))
 }
 
 as_tidy <- function(object) {
@@ -13,8 +13,8 @@ as_tidy <- function(object) {
     object
   } else if (is.numeric(object)) {
     tibble(
-      term='(Intercept)',
-      estimate=object
+      term = "(Intercept)",
+      estimate = object
     )
   } else {
     broom::tidy(object)
@@ -36,26 +36,27 @@ as_tidy <- function(object) {
 #' @param ...
 #'
 #' @export
-brr <- function(formula, statistic, data, final_weights, replicate_weights, r=80, .progress=TRUE, .select='tidy', ...) {
+brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .progress = TRUE, .select = "tidy", ...) {
   outcomes <- all.vars(rlang::f_lhs(formula))
   predictors <- rlang::f_text(formula)
 
   # select weights from `data` using selection helpers such as `starts_with`,
   # `matches` etc. from the tidyselect package, using nonstandard evaluation
   switch(.select,
-    tidy={
+    tidy = {
       final_weights_selectors <- rlang::enquo(final_weights)
-      final_ixs <- eval_select(final_weights_selectors, data=data)
+      final_ixs <- eval_select(final_weights_selectors, data = data)
       final_weights <- data[, final_ixs]
 
       replicate_weights_selectors <- rlang::enquo(replicate_weights)
-      replicate_ixs <- eval_select(replicate_weights_selectors, data=data)
+      replicate_ixs <- eval_select(replicate_weights_selectors, data = data)
       replicate_weights <- data[, replicate_ixs]
     },
-    names={
+    names = {
       final_weights <- data[, final_weights]
       replicate_weights <- data[, replicate_weights]
-    }, {
+    },
+    {
       # by default, we take `final_weights` and `replicate_weights` as-is,
       # which should be in the form of data frames or tibbles
     }
@@ -69,14 +70,14 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r=80
     weights = colnames(weights)
   )
 
-  formulae <- str_c(outcomes, ' ~ ', predictors)
+  formulae <- str_c(outcomes, " ~ ", predictors)
   names(formulae) <- outcomes
   conditions$formula <- formulae[conditions$outcome]
 
-  progressor <- cli_progress_bar('Balanced repeated replication', total=nrow(conditions))
+  progressor <- cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
 
   replicate <- function(condition) {
-    if (.progress) cli::cli_progress_update(id=progressor)
+    if (.progress) cli::cli_progress_update(id = progressor)
     as_tidy(statistic(
       formula = as.formula(condition$formula),
       data = data,
@@ -86,14 +87,14 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r=80
   }
 
   replications <- conditions |>
-   rowwise() |>
-   reframe(
-     outcome = outcome,
-     weights = weights,
-     formula = formula,
-     results = replicate(.data)
-   ) |>
-   unnest_wider(results)
+    rowwise() |>
+    reframe(
+      outcome = outcome,
+      weights = weights,
+      formula = formula,
+      results = replicate(.data)
+    ) |>
+    unnest_wider(results)
 
   cli::cli_progress_done()
 
@@ -106,7 +107,7 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r=80
   structure(list(
     t0 = replications |> filter(weights == {{ final_weights_colname }}),
     t  = replications |> filter(weights != {{ final_weights_colname }})
-  ), class = 'brr')
+  ), class = "brr")
 }
 
 #' Diagnose common problems with BRR replications
@@ -121,8 +122,8 @@ brr_diagnose <- function(replications) {
     data <- tx |> drop_na()
     na_outcomes <- setdiff(unique(data$outcome), unique(data$outcome))
     na_weights <- setdiff(unique(data$weights), unique(data$weights))
-    if (length(na_outcomes)) message('Missing replication outcomes: ', str_flatten_comma(na_outcomes))
-    if (length(na_weights))  message('Missing replication weights: ',  str_flatten_comma(na_weights))
+    if (length(na_outcomes)) message("Missing replication outcomes: ", str_flatten_comma(na_outcomes))
+    if (length(na_weights)) message("Missing replication weights: ", str_flatten_comma(na_weights))
     data
   })
 }
@@ -140,7 +141,7 @@ brr_diagnose <- function(replications) {
 #' @param simplify return a named vector instead of `tibble(term, estimate)`
 #'
 #' @export
-coef.brr <- function(replications, na_rm=FALSE, simplify=TRUE) {
+coef.brr <- function(replications, na_rm = FALSE, simplify = TRUE) {
   if (na_rm) {
     results <- replications$t0 |> drop_na(estimate)
   } else {
@@ -150,13 +151,13 @@ coef.brr <- function(replications, na_rm=FALSE, simplify=TRUE) {
   coefs <- results |>
     group_by(term) |>
     summarize(
-      estimate=mean(estimate, na.rm=na_rm)
-      )
+      estimate = mean(estimate, na.rm = na_rm)
+    )
 
   # simplification is the default, to match the format of `brr.lm`
   if (simplify) {
     coefs |>
-      pivot_wider(names_from='term', values_from='estimate') |>
+      pivot_wider(names_from = "term", values_from = "estimate") |>
       unlist()
   } else {
     coefs
@@ -170,11 +171,11 @@ coef.brr <- function(replications, na_rm=FALSE, simplify=TRUE) {
 #'
 #' @export
 #' @importFrom generics tidy
-tidy.brr <- function(replications, na_rm=FALSE) {
-  coef.brr(replications, na_rm=na_rm, simplify=FALSE)
+tidy.brr <- function(replications, na_rm = FALSE) {
+  coef.brr(replications, na_rm = na_rm, simplify = FALSE)
 }
 
-brr_n <- function(t, perturbation=0.50) {
+brr_n <- function(t, perturbation = 0.50) {
   n <- list()
   n$outcomes <- length(unique(t$outcome))
   n$replications <- length(unique(t$weights))
@@ -199,13 +200,13 @@ brr_n <- function(t, perturbation=0.50) {
 #'
 #' @return A list of mean and variance component vectors.
 #' @export
-brr_var <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALSE) {
+brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm = FALSE) {
   if (na_rm) {
     t0 <- replications$t0 |> drop_na(estimate)
     t <- replications$t |> drop_na(estimate)
   } else {
     t0 <- replications$t0
-    t  <- replications$t
+    t <- replications$t
   }
 
   n <- brr_n(t, perturbation)
@@ -213,34 +214,34 @@ brr_var <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALS
   # means by outcome
   m0 <- t0 |>
     group_by(term, outcome) |>
-    summarize(mean=mean(estimate)) |>
+    summarize(mean = mean(estimate)) |>
     ungroup()
 
   # final means
   mm0 <- t0 |>
     group_by(term) |>
-    summarize(mean=mean(estimate))
+    summarize(mean = mean(estimate))
 
-  t0 <- full_join(t0, mm0, by=c('term')) |>
-    mutate(squared_deviation=(estimate - mean)^2)
-  t  <- full_join(t,  m0, by=c('term', 'outcome')) |>
-    mutate(squared_deviation=(estimate - mean)^2)
+  t0 <- full_join(t0, mm0, by = c("term")) |>
+    mutate(squared_deviation = (estimate - mean)^2)
+  t <- full_join(t, m0, by = c("term", "outcome")) |>
+    mutate(squared_deviation = (estimate - mean)^2)
 
   # FIXME: n$outcomes may well be inaccurate if na_rm is selected!
   imputation_variance <- t0 |>
     group_by(term) |>
-    summarize(imputation=sum(squared_deviation) / (n$outcomes - 1))
+    summarize(imputation = sum(squared_deviation) / (n$outcomes - 1))
 
   estimation_variance <- t |>
     group_by(term) |>
-    summarize(estimation=mean(squared_deviation) * n$brr_design_effect)
+    summarize(estimation = mean(squared_deviation) * n$brr_design_effect)
 
   # note that first we obtain the imputation variance by dividing by n-1,
   # but then here we multiply by n+(1/n), which gets you almost but not
   # quite back to 1; why PISA recommends this approach eludes me but it is
   # what it says in the technical manual
-  variance <- full_join(imputation_variance, estimation_variance, by='term')
-  variance$total <- variance$estimation + (1 + 1/n$outcomes) * variance$imputation
+  variance <- full_join(imputation_variance, estimation_variance, by = "term")
+  variance$total <- variance$estimation + (1 + 1 / n$outcomes) * variance$imputation
   variance
 }
 
@@ -252,7 +253,7 @@ brr_var <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALS
 #'
 #' @return A list of mean and variance component vectors.
 #' @export
-brr_sd <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALSE) {
+brr_sd <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm = FALSE) {
   s2 <- brr_var(replications, perturbation, imputation, na_rm)
   s <- s2 |> mutate(across(!term, ~ sqrt(.x)))
   s
@@ -267,31 +268,31 @@ brr_sd <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALSE
 #' @param extra include standard error and variance components in the output
 
 #' @export
-confint.brr <- function(replications, level=0.95, perturbation=0.50, imputation=TRUE, extra=FALSE, na_rm=FALSE) {
+confint.brr <- function(replications, level = 0.95, perturbation = 0.50, imputation = TRUE, extra = FALSE, na_rm = FALSE) {
   # means <- replications$t0 |> select(where(is.numeric)) |> summarize(across(everything(), mean))
-  variances <- brr_var(replications, perturbation=perturbation, imputation=imputation, na_rm=na_rm)
+  variances <- brr_var(replications, perturbation = perturbation, imputation = imputation, na_rm = na_rm)
   if (imputation) {
     variance <- variances$total
   } else {
     variance <- variance$estimation
   }
-  means <- unname(coef.brr(replications, na_rm=na_rm))
+  means <- unname(coef.brr(replications, na_rm = na_rm))
   critical <- qnorm(1 - (1 - level) / 2)
   margins <- sqrt(variance) * critical
   names <- variances$term
 
   base <- tibble(
-    term=names,
-    estimate=means,
-    lower=means - margins,
-    upper=means + margins
+    term = names,
+    estimate = means,
+    lower = means - margins,
+    upper = means + margins
   )
 
   additional <- tibble(
-    imputation_var=variances$imputation,
-    estimation_var=variances$estimation,
-    total_var=variances$total,
-    se=sqrt(variances$total)
+    imputation_var = variances$imputation,
+    estimation_var = variances$estimation,
+    total_var = variances$total,
+    se = sqrt(variances$total)
   )
 
   if (extra) {

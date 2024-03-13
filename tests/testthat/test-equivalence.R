@@ -1,5 +1,5 @@
-library('arrow')
-library('dplyr')
+library("arrow")
+library("dplyr")
 
 EU15_ISO <- c("BEL", "DNK", "DEU", "FIN", "FRA", "GRC", "IRL", "ITA", "LUX", "NLD", "AUT", "PRT", "ESP", "GBR", "SWE")
 OECD30_ISO <- c("AUT", "BEL", "CAN", "DNK", "FRA", "DEU", "GRC", "ISL", "IRL", "ITA", "LUX", "NLD", "NOR", "PRT", "ESP", "SWE", "CHE", "TUR", "GBR", "USA", "JPN", "FIN", "AUS", "NZL", "POL", "HUN", "CZE", "SVK", "KOR", "MEX")
@@ -31,45 +31,45 @@ OECD30_ISO <- c("AUT", "BEL", "CAN", "DNK", "FRA", "DEU", "GRC", "ISL", "IRL", "
 # sometimes a handful of observations get added or disappear, presumably due to
 # last-minute quality control.
 test_that("our estimates correspond to the official publication", {
-  if (Sys.getenv('BRR_TEST_EQUIVALENCE') != '1') skip()
+  if (Sys.getenv("BRR_TEST_EQUIVALENCE") != "1") skip()
 
-  expected <- read_csv('../scores.csv', show_col_types=FALSE)
-  expected$term <- str_c(expected$country_iso, ':', expected$assessment)
+  expected <- read_csv("../scores.csv", show_col_types = FALSE)
+  expected$term <- str_c(expected$country_iso, ":", expected$assessment)
 
-  pisa <- open_dataset('../../../pisa.rx.parquet/build/pisa.rx.parquet') |>
-    select(starts_with('pv') & ends_with('read'), 'country_iso', 'assessment', starts_with('w_read')) |>
+  pisa <- open_dataset("../../../pisa.rx.parquet/build/pisa.rx.parquet") |>
+    select(starts_with("pv") & ends_with("read"), "country_iso", "assessment", starts_with("w_read")) |>
     filter(assessment >= 2015, country_iso %in% OECD30_ISO) |>
     collect()
   fits <- brr(pv1read + pv2read + pv3read + pv4read + pv5read + pv6read + pv7read + pv8read + pv9read + pv10read ~ country_iso + assessment,
-      statistic=weighted_mean_by,
-      data=pisa,
-      final_weights=matches('w_read_fstuwt'),
-      replicate_weights=starts_with('w_read_fstr'),
-      r=80,
-      .select='tidy',
-      .progress=FALSE
-      )
+    statistic = weighted_mean_by,
+    data = pisa,
+    final_weights = matches("w_read_fstuwt"),
+    replicate_weights = starts_with("w_read_fstr"),
+    r = 80,
+    .select = "tidy",
+    .progress = FALSE
+  )
 
-  actual <- confint(fits, extra=TRUE)
-  actual$domain <- 'read'
+  actual <- confint(fits, extra = TRUE)
+  actual$domain <- "read"
 
-  comparisons <- inner_join(actual, expected, by=c('term', 'domain'))
+  comparisons <- inner_join(actual, expected, by = c("term", "domain"))
 
-  expect_equal(as.numeric(comparisons$estimate), comparisons$mean, tolerance=1e-3)
+  expect_equal(as.numeric(comparisons$estimate), comparisons$mean, tolerance = 1e-3)
   for (ix in which(abs(as.numeric(comparisons$estimate) - comparisons$mean) > 1e-3)) {
-    warning(str_glue_data(comparisons[ix,], 'Discrepancy for {country_iso} {domain} in {assessment}: expected {mean} but computed {estimate}'))
+    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {assessment}: expected {mean} but computed {estimate}"))
   }
 
-  expect_equal(as.numeric(comparisons$se), comparisons$error, tolerance=1e-3)
+  expect_equal(as.numeric(comparisons$se), comparisons$error, tolerance = 1e-3)
   for (ix in which(abs(as.numeric(comparisons$estimate) - comparisons$mean) > 1e-3)) {
-    warning(str_glue_data(comparisons[ix,], 'Discrepancy for {country_iso} {domain} in {assessment}: expected {error} but computed {se}'))
+    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {assessment}: expected {error} but computed {se}"))
   }
 })
 
-test_that('missing outcomes are handled appropriately', {
-  pisa <- open_dataset('../../../pisa.rx.parquet/build/pisa.rx.parquet') |>
-    select(starts_with('pv') & ends_with('math'), 'country_iso', 'assessment', starts_with('w_math')) |>
-    filter(assessment == 2000, country_iso == 'BEL') |>
+test_that("missing outcomes are handled appropriately", {
+  pisa <- open_dataset("../../../pisa.rx.parquet/build/pisa.rx.parquet") |>
+    select(starts_with("pv") & ends_with("math"), "country_iso", "assessment", starts_with("w_math")) |>
+    filter(assessment == 2000, country_iso == "BEL") |>
     collect()
 
   # there are two kinds of missingness here:
@@ -77,21 +77,21 @@ test_that('missing outcomes are handled appropriately', {
   # * math scores are not available for every student (should be dealt with by the `statistic`,
   #   but note that `brr` can pass an additional argument such as `na.rm` to `statistic`)
   fits10 <- brr(pv1math + pv2math + pv3math + pv4math + pv5math + pv6math + pv7math + pv8math + pv9math + pv10math ~ 1,
-      statistic=pull_weighted_mean,
-      data=pisa,
-      final_weights=matches('w_math_fstuwt'),
-      replicate_weights=starts_with('w_math_fstr'),
-      .progress=FALSE,
-      na_rm=TRUE
-      )
+    statistic = pull_weighted_mean,
+    data = pisa,
+    final_weights = matches("w_math_fstuwt"),
+    replicate_weights = starts_with("w_math_fstr"),
+    .progress = FALSE,
+    na_rm = TRUE
+  )
 
   fits5 <- brr(pv1math + pv2math + pv3math + pv4math + pv5math ~ 1,
-                statistic=pull_weighted_mean,
-                data=pisa,
-                final_weights=matches('w_math_fstuwt'),
-                replicate_weights=starts_with('w_math_fstr'),
-               .progress=FALSE,
-               na_rm=TRUE
+    statistic = pull_weighted_mean,
+    data = pisa,
+    final_weights = matches("w_math_fstuwt"),
+    replicate_weights = starts_with("w_math_fstr"),
+    .progress = FALSE,
+    na_rm = TRUE
   )
 
   # it is especially important to test `brr_var` because the `na_rm` logic
@@ -99,7 +99,7 @@ test_that('missing outcomes are handled appropriately', {
   # the formula, otherwise the variance calculations will be off
   expect_true(!is.na(unname(coef(fits5))))
   expect_equal(unname(coef(fits10)), NaN)
-  expect_equal(confint(fits10), tibble(term='(Intercept)', estimate=NaN, lower=NaN, upper=NaN))
-  expect_equal(coef(fits5), coef(fits10, na_rm=TRUE))
-  expect_equal(brr_var(fits5), brr_var(fits10, na_rm=TRUE))
+  expect_equal(confint(fits10), tibble(term = "(Intercept)", estimate = NaN, lower = NaN, upper = NaN))
+  expect_equal(coef(fits5), coef(fits10, na_rm = TRUE))
+  expect_equal(brr_var(fits5), brr_var(fits10, na_rm = TRUE))
 })

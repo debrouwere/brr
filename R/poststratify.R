@@ -1,21 +1,21 @@
-library('tidyverse')
+library("tidyverse")
 
 as_factors <- function(df, colnames) {
   for (colname in colnames) {
     if (!is.factor(df[[colname]])) {
       old_type <- typeof(df[[colname]])
-      message(str_glue('Converting {colname} from {old_type} to factor.'))
-      df[,colname] <- factor(df[[colname]])
+      message(str_glue("Converting {colname} from {old_type} to factor."))
+      df[, colname] <- factor(df[[colname]])
     }
   }
   df
 }
 
-NA_LEVEL <- '<NA>'
+NA_LEVEL <- "<NA>"
 
 na_value_to_level <- function(df, colnames) {
   for (colname in colnames) {
-    df[,colname] <- fct_na_value_to_level(df[[colname]], level=NA_LEVEL)
+    df[, colname] <- fct_na_value_to_level(df[[colname]], level = NA_LEVEL)
   }
   df
 }
@@ -29,7 +29,7 @@ na_value_to_level <- function(df, colnames) {
 #' @param weights column name of a column that contains observation weights
 #'
 #' @export
-poststrata <- function(df, df_target, factors, weights=NULL) {
+poststrata <- function(df, df_target, factors, weights = NULL) {
   # Note that even though we are only computing adjustment factors that are supposed to be applied
   # to pre-existing weights, we must still know about those weights and cannot simply rely on
   # the unweighted `n` of observations. For example, if a country has, by proportion, twice as many
@@ -39,11 +39,15 @@ poststrata <- function(df, df_target, factors, weights=NULL) {
   if (is.null(weights)) {
     count_wt <- count
   } else {
-    count_wt <- partial(count, wt=.data[[weights]])
+    count_wt <- partial(count, wt = .data[[weights]])
   }
 
-  df <- df |> as_factors(factors) |> na_value_to_level(factors)
-  df_target <- df_target |> as_factors(factors) |> na_value_to_level(factors)
+  df <- df |>
+    as_factors(factors) |>
+    na_value_to_level(factors)
+  df_target <- df_target |>
+    as_factors(factors) |>
+    na_value_to_level(factors)
 
   total <- count_wt(df)
   counts <- df |> count_wt(across({{ factors }}))
@@ -53,7 +57,7 @@ poststrata <- function(df, df_target, factors, weights=NULL) {
   target_counts <- df_target |> count_wt(across({{ factors }}))
   target_counts$p_target <- target_counts$n / target_total$n
 
-  counts <- left_join(counts, target_counts[, c(factors, 'p_target')], by=factors)
+  counts <- left_join(counts, target_counts[, c(factors, "p_target")], by = factors)
 
   # let's drop NA cells for now; in the future perhaps raise a warning
   # (this should not happen due to actual missing values, which should get their own cell,
@@ -74,7 +78,7 @@ poststrata <- function(df, df_target, factors, weights=NULL) {
 #' @param upper maximum value to which to clip weight adjustment factors
 #'
 #' @export
-clip_strata <- function(strata, upper=5) {
+clip_strata <- function(strata, upper = 5) {
   # (note that it would also be possible to clip the weights of actual
   # observations rather than the weight adjustment factors in the strata,
   # but that is not covered by this function)
@@ -102,10 +106,10 @@ drop_na_strata <- function(strata) {
   w <- strata$w
   # clean
   factors <- strata |> select(where(is.factor))
-  has_missing <- apply(sweep(factors, 2, '<NA>', '=='), 1, any)
+  has_missing <- apply(sweep(factors, 2, "<NA>", "=="), 1, any)
   w_clean <- strata$w
   w[has_missing] <- 0.0
-  strata[has_missing, 'w'] <- 0.0
+  strata[has_missing, "w"] <- 0.0
   # renormalize
   strata$w <- w * sum(w * n) / sum(w_clean * n)
   strata
@@ -117,11 +121,13 @@ drop_na_strata <- function(strata) {
 #' @param strata strata with weight adjustment factors, as produced by `poststrata(df, ...)`
 #' @param name rename the weight adjustment factors to `name`
 #' @export
-poststratify <- function(df, strata, name='weight') {
-  weight_col <- c('w')
+poststratify <- function(df, strata, name = "weight") {
+  weight_col <- c("w")
   names(weight_col) <- name
 
-  factors <- strata |> select(where(is.factor)) |> colnames()
+  factors <- strata |>
+    select(where(is.factor)) |>
+    colnames()
   df <- df |> as_factors(factors)
 
   # <NA> is a stratum level, but when joining with the original data
@@ -132,13 +138,13 @@ poststratify <- function(df, strata, name='weight') {
 
   # two NA values are considered identical for the purposes of joining poststratification weights
   # (this is currently the default for `left_join`, added for clarity)
-  left_join(df, strata[, c(factors, name)], by=factors, na_matches='na')
+  left_join(df, strata[, c(factors, name)], by = factors, na_matches = "na")
 }
 
 
 # helper function for strata_collapse
-total_distance <- function (distances, left_ixs, right_ixs) {
-  ixs <- expand.grid(left=left_ixs, right=right_ixs)
+total_distance <- function(distances, left_ixs, right_ixs) {
+  ixs <- expand.grid(left = left_ixs, right = right_ixs)
   # as.vector performs columnwise flattening, which matches the ordering of expand.grid
   ixs$distance <- as.vector(distances[left_ixs, right_ixs])
   sum(ixs$distance)
@@ -146,15 +152,15 @@ total_distance <- function (distances, left_ixs, right_ixs) {
 
 distance_between_levels <- function(factor) {
   k <- length(levels(factor))
-  coordinates <- attr(factor, 'coordinates', exact=TRUE)
+  coordinates <- attr(factor, "coordinates", exact = TRUE)
 
   if (!is.null(coordinates)) {
-    d <- abs(matrix(coordinates, ncol=k, nrow=k, byrow=TRUE) - coordinates)
+    d <- abs(matrix(coordinates, ncol = k, nrow = k, byrow = TRUE) - coordinates)
   } else if (is.ordered(factor)) {
     coordinates <- 1:k
-    d <- abs(matrix(coordinates, ncol=k, nrow=k, byrow=TRUE) - coordinates)
+    d <- abs(matrix(coordinates, ncol = k, nrow = k, byrow = TRUE) - coordinates)
   } else {
-    d <- 1 - diag(1, nrow=k)
+    d <- 1 - diag(1, nrow = k)
   }
   rownames(d) <- colnames(d) <- levels(factor)
   d
@@ -213,9 +219,9 @@ normalize <- function(x) {
 #' @param strategy `distance` (recommended) or `adjacency` (classic)
 #'
 #' @export
-collapse_strata <- function(strata, n_min=10, strategy='distance') {
-  if (!(strategy %in% c('distance', 'adjacency'))) {
-    stop(str_glue('{strategy} is not a valid collapse_strata strategy, choose from: distance, adjacency'))
+collapse_strata <- function(strata, n_min = 10, strategy = "distance") {
+  if (!(strategy %in% c("distance", "adjacency"))) {
+    stop(str_glue("{strategy} is not a valid collapse_strata strategy, choose from: distance, adjacency"))
   }
 
   # `m` is the n of potentially merged strata (this way, the original stratum n
@@ -228,9 +234,9 @@ collapse_strata <- function(strata, n_min=10, strategy='distance') {
   # the distance between two cells is the amount of factors
   # for which they have a different level
   factors <- strata |> select(where(is.factor))
-  #distances <- apply(factors, 1, function(factor) {
+  # distances <- apply(factors, 1, function(factor) {
   #  rowSums(sweep(factors, 2, factor, '!='))
-  #})
+  # })
   within_distances <- map(colnames(factors), function(name) {
     normalize(distance_between_levels(factors[[name]]))
   })
@@ -246,37 +252,47 @@ collapse_strata <- function(strata, n_min=10, strategy='distance') {
   # the adjacency between two cells is their distance, adjusted downwards
   # when any mismatch occurs in a factor near the front of the list and
   # adjusted upwards when the mismatch occurs in a factor near the end of the list
-  nearness <- matrix(ncol(factors):1, ncol=ncol(factors), nrow=nrow(factors), byrow=TRUE)
+  nearness <- matrix(ncol(factors):1, ncol = ncol(factors), nrow = nrow(factors), byrow = TRUE)
   adjacencies <- apply(factors, 1, function(factor) {
-    rowSums(sweep(factors, 2, factor, '!=') * nearness)
+    rowSums(sweep(factors, 2, factor, "!=") * nearness)
   })
 
   repeat {
-    candidates_left <- strata |> filter(m < n_min) |> arrange(m)
+    candidates_left <- strata |>
+      filter(m < n_min) |>
+      arrange(m)
 
     if (nrow(candidates_left) < 1) {
       break
     }
 
     left <- candidates_left |> first()
-    left_factors <- left |> select(where(is.factor)) |> unlist()
+    left_factors <- left |>
+      select(where(is.factor)) |>
+      unlist()
     candidates_right <- strata
     candidates_right_factors <- candidates_right |> select(where(is.factor))
 
     # for merged strata, similarity is a fractional value: the average
     # of the distance of each left-right pair of cells weighted by their joint probability;
     # for example, with unit weights: (A,Z), (B,Z) <-> (A,X) is 1.5 dissimilar
-    left_ixs <- strata |> filter(label == left$label) |> pull('index')
-    candidate_ixs <- map(strata$label, function(label) { strata |> filter(label == {{ label }}) |> pull('index') })
+    left_ixs <- strata |>
+      filter(label == left$label) |>
+      pull("index")
+    candidate_ixs <- map(strata$label, function(label) {
+      strata |>
+        filter(label == {{ label }}) |>
+        pull("index")
+    })
     # broadcast weights to obtain joint probabilities, then do
     # an elementwise multiplication with the distance matrix
-    weights <- matrix(strata$pm, nrow=nrow(strata), ncol=nrow(strata), byrow=TRUE) * strata$pm
+    weights <- matrix(strata$pm, nrow = nrow(strata), ncol = nrow(strata), byrow = TRUE) * strata$pm
     weighted_distances <- distances * weights
     candidates_right$dissimilarity <- map_dbl(candidate_ixs, function(right_ixs) {
       total_distance(weighted_distances, left_ixs, right_ixs)
     })
 
-    if (strategy == 'adjacency') {
+    if (strategy == "adjacency") {
       weighted_adjacencies <- adjacencies * weights
       candidates_right$adjacency <- map_dbl(candidate_ixs, function(right_ixs) {
         total_distance(weighted_adjacencies, left_ixs, right_ixs)
@@ -292,20 +308,21 @@ collapse_strata <- function(strata, n_min=10, strategy='distance') {
     # try to merge with the most similar or most adjacent cell first
     right <- candidates_right |>
       filter(label != left$label, dissimilarity >= 1) |>
-      arrange(pick(adjacency, dissimilarity, m)) |> first()
+      arrange(pick(adjacency, dissimilarity, m)) |>
+      first()
 
     m_merged <- left$m + right$m
     w_merged <- (left$w * left$m + right$w * right$m) / m_merged
 
     labels <- c(left$label, right$label)
     ixs <- strata$label %in% labels
-    strata[ixs, 'm'] <- m_merged
-    strata[ixs, 'w'] <- w_merged
-    strata[ixs, 'pm'] <- strata[ixs, 'n'] / strata[ixs, 'm']
+    strata[ixs, "m"] <- m_merged
+    strata[ixs, "w"] <- w_merged
+    strata[ixs, "pm"] <- strata[ixs, "n"] / strata[ixs, "m"]
 
     # by updating the label to account for the merge, we make sure that any
     # subsequent merges involve all rows involved in earlier merges
-    strata[ixs, 'label'] <- str_flatten(labels, ',')
+    strata[ixs, "label"] <- str_flatten(labels, ",")
   }
 
   strata

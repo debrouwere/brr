@@ -1,10 +1,10 @@
-library('tidyverse')
+library("tidyverse")
 
-READ_WEIGHTS <- c('w_read_fstuwt', str_glue('w_read_fstr{d}', d=1:80))
-MATH_WEIGHTS <- c('w_math_fstuwt', str_glue('w_math_fstr{d}', d=1:80))
-SCIE_WEIGHTS <- c('w_scie_fstuwt', str_glue('w_scie_fstr{d}', d=1:80))
-FINAL_WEIGHTS <- c('w_fstuwt')
-REPLICATE_WEIGHTS <- str_glue('w_fstr{d}', d=1:80)
+READ_WEIGHTS <- c("w_read_fstuwt", str_glue("w_read_fstr{d}", d = 1:80))
+MATH_WEIGHTS <- c("w_math_fstuwt", str_glue("w_math_fstr{d}", d = 1:80))
+SCIE_WEIGHTS <- c("w_scie_fstuwt", str_glue("w_scie_fstr{d}", d = 1:80))
+FINAL_WEIGHTS <- c("w_fstuwt")
+REPLICATE_WEIGHTS <- str_glue("w_fstr{d}", d = 1:80)
 WEIGHTS <- c(FINAL_WEIGHTS, REPLICATE_WEIGHTS)
 
 #' Compute weighted summary statistics of data subsets (or the entire dataset) for one or more outcome variables
@@ -24,20 +24,20 @@ WEIGHTS <- c(FINAL_WEIGHTS, REPLICATE_WEIGHTS)
 #' @export
 #'
 #' @examples
-#' df <- tibble(x=1:10, y=11:20, w=1 + 1:10/10, u=rep(1, 10), g=rep(c(1,2), each=5))
+#' df <- tibble(x = 1:10, y = 11:20, w = 1 + 1:10 / 10, u = rep(1, 10), g = rep(c(1, 2), each = 5))
 #' weighted_aggregate(x + y ~ g, weighted_mean, df, df$w)
 #' # or more succinct...
-#' weighted_mean_by <- partial(weighted_aggregate, statistic=weighted_mean)
+#' weighted_mean_by <- partial(weighted_aggregate, statistic = weighted_mean)
 #' weighted_mean_by(x + y ~ g, df, df$w)
 weighted_aggregate <- function(formula, statistic, data, weights, ...) {
   outcomes <- all.vars(rlang::f_lhs(formula))
   groupers <- all.vars(rlang::f_rhs(formula))
-  data <- bind_cols(data, .weights=weights)
+  data <- bind_cols(data, .weights = weights)
   outcomes <- data |>
     group_by(across({{ groupers }})) |>
-    summarize(across({{ outcomes }}, ~ statistic(.x, weights=.data$.weights, ...)))
-  outcomes <- new_tibble(outcomes, class='aggregate')
-  attr(outcomes, 'groups') <- groupers
+    summarize(across({{ outcomes }}, ~ statistic(.x, weights = .data$.weights, ...)))
+  outcomes <- new_tibble(outcomes, class = "aggregate")
+  attr(outcomes, "groups") <- groupers
   outcomes
 }
 
@@ -49,7 +49,7 @@ weighted_aggregate <- function(formula, statistic, data, weights, ...) {
 #' @param ... additional arguments, passed onto `weighted_mean`, such as `na_rm`
 #'
 #' @export
-weighted_mean_by <- partial(weighted_aggregate, statistic=weighted_mean)
+weighted_mean_by <- partial(weighted_aggregate, statistic = weighted_mean)
 
 #' Weighted median conditional on zero or more groups
 #'
@@ -59,7 +59,7 @@ weighted_mean_by <- partial(weighted_aggregate, statistic=weighted_mean)
 #' @param ... additional arguments, passed onto `weighted_median`, such as `na_rm`
 #'
 #' @export
-weighted_median_by <- partial(weighted_aggregate, statistic=weighted_quantile, probs=0.50)
+weighted_median_by <- partial(weighted_aggregate, statistic = weighted_quantile, probs = 0.50)
 
 #' Weighted mean with a formula interface
 #'
@@ -96,21 +96,21 @@ pull_weighted_median <- formulaic(weighted_median)
 
 #' @export
 #' @importFrom generics tidy
-tidy.aggregate <- function(results, index=1) {
-  groupers <- attr(results, 'groups', exact=TRUE)
+tidy.aggregate <- function(results, index = 1) {
+  groupers <- attr(results, "groups", exact = TRUE)
 
   if (!length(groupers)) {
-    groupers <- c('term')
-    results <- bind_cols(list(term='(Intercept)'), results)
+    groupers <- c("term")
+    results <- bind_cols(list(term = "(Intercept)"), results)
   }
 
-  groups <- lapply(results[, groupers], str_replace_na, replacement='<NA>')
+  groups <- lapply(results[, groupers], str_replace_na, replacement = "<NA>")
   names(groups) <- NULL
-  groups$sep <- ':'
+  groups$sep <- ":"
   results$terms <- do.call(str_c, groups)
 
   tidied <- results[, c(ncol(results), length(groupers) + index)]
-  colnames(tidied) <- c('term', 'estimate')
+  colnames(tidied) <- c("term", "estimate")
   tidied
 }
 
@@ -140,7 +140,7 @@ weighted_var <- function(x, weights, na_rm = FALSE) {
 #'
 #' @export
 weighted_sd <- function(x, weights, na_rm = FALSE) {
-  sqrt(weighted_var(x=x, weights=weights, na_rm=na_rm))
+  sqrt(weighted_var(x = x, weights = weights, na_rm = na_rm))
 }
 
 #' Weighted scaling and centering of a vector
@@ -150,9 +150,9 @@ weighted_sd <- function(x, weights, na_rm = FALSE) {
 #' @param na_rm in line with `base::scale`, removes NAs by default
 #'
 #' @export
-weighted_scale <- function(x, weights, na_rm=TRUE) {
-  mu <- weighted_mean(x, weights, na_rm=na_rm)
-  sigma <- weighted_sd(x, weights, na_rm=na_rm)
+weighted_scale <- function(x, weights, na_rm = TRUE) {
+  mu <- weighted_mean(x, weights, na_rm = na_rm)
+  sigma <- weighted_sd(x, weights, na_rm = na_rm)
   (x - mu) / sigma
 }
 
@@ -167,9 +167,9 @@ weighted_scale <- function(x, weights, na_rm=TRUE) {
 #' @param na_rm in line with `base::scale`, removes NAs by default
 #'
 #' @export
-weighted_scale_by <- function(x, x_target, weights, na_rm=TRUE) {
-  mu <- weighted_mean(x_target, weights, na_rm=na_rm)
-  sigma <- weighted_sd(x_target, weights, na_rm=na_rm)
+weighted_scale_by <- function(x, x_target, weights, na_rm = TRUE) {
+  mu <- weighted_mean(x_target, weights, na_rm = na_rm)
+  sigma <- weighted_sd(x_target, weights, na_rm = na_rm)
   (x - mu) / sigma
 }
 
@@ -181,12 +181,12 @@ weighted_scale_by <- function(x, x_target, weights, na_rm=TRUE) {
 #' @param ...
 #'
 #' @export
-weighted_mean <- function(x, weights, na_rm=FALSE, ...) {
+weighted_mean <- function(x, weights, na_rm = FALSE, ...) {
   # weighted.mean chokes on NA weights even with na.rm=TRUE
   if (na_rm) {
     weights <- replace_na(weights, 0)
   }
-  weighted.mean(x, weights, na.rm=na_rm, ...)
+  weighted.mean(x, weights, na.rm = na_rm, ...)
 }
 
 #' A weighted sum
@@ -199,19 +199,20 @@ weighted_mean <- function(x, weights, na_rm=FALSE, ...) {
 #' @param na_rm na_rm
 #'
 #' @export
-weighted_sum <- function(x, weights, na_rm=FALSE) {
-  sum(x * weights, na.rm=na_rm)
+weighted_sum <- function(x, weights, na_rm = FALSE) {
+  sum(x * weights, na.rm = na_rm)
 }
 
-weighted_quantile_generic <- function(x, probs, cdf.gen, na.rm=FALSE, weights=NA) {
+weighted_quantile_generic <- function(x, probs, cdf.gen, na.rm = FALSE, weights = NA) {
   if (na.rm) {
     weights <- weights[i <- !is.na(x)]
     x <- x[i]
   }
 
   n <- length(x)
-  if (any(is.na(weights)))
+  if (any(is.na(weights))) {
     weights <- rep(1 / n, n)
+  }
   # Kish's effective sample size
   nw <- sum(weights)^2 / sum(weights^2)
 
@@ -247,11 +248,13 @@ weighted_quantile_generic <- function(x, probs, cdf.gen, na.rm=FALSE, weights=NA
 #' @param na_rm na_rm
 #'
 #' @export
-weighted_quantile_hd82 <- function(x, weights, probs, na_rm=FALSE) {
-  cdf.gen <- function(n, p) return(function(cdf.probs) {
-    pbeta(cdf.probs, (n + 1) * p, (n + 1) * (1 - p))
-  })
-  weighted_quantile_generic(x, probs, cdf.gen, na.rm=na_rm, weights=weights)
+weighted_quantile_hd82 <- function(x, weights, probs, na_rm = FALSE) {
+  cdf.gen <- function(n, p) {
+    return(function(cdf.probs) {
+      pbeta(cdf.probs, (n + 1) * p, (n + 1) * (1 - p))
+    })
+  }
+  weighted_quantile_generic(x, probs, cdf.gen, na.rm = na_rm, weights = weights)
 }
 
 #' Naive weighted sample quantile estimator
@@ -280,7 +283,7 @@ weighted_quantile_hd82 <- function(x, weights, probs, na_rm=FALSE) {
 #' @param na_rm na_rm
 #'
 #' @export
-weighted_quantile <- function(x, weights, prob, type=1, na_rm=FALSE) {
+weighted_quantile <- function(x, weights, prob, type = 1, na_rm = FALSE) {
   if (na_rm) {
     i <- !is.na(x)
     weights <- weights[i]
@@ -294,16 +297,20 @@ weighted_quantile <- function(x, weights, prob, type=1, na_rm=FALSE) {
   ix <- ixs[i]
   ix0 <- ixs[i - 1]
 
-  switch(type, {
-    x[ix0]
-  }, {
-    (x[ix0] + x[ix]) / 2
-  }, {
-    ifelse(cdf[ix] - cdf[ix0] >= 2 * prob, x[ix0], x[ix])
-  })
+  switch(type,
+    {
+      x[ix0]
+    },
+    {
+      (x[ix0] + x[ix]) / 2
+    },
+    {
+      ifelse(cdf[ix] - cdf[ix0] >= 2 * prob, x[ix0], x[ix])
+    }
+  )
 }
 
-weighted_median <- partial(weighted_quantile, prob=0.5)
+weighted_median <- partial(weighted_quantile, prob = 0.5)
 
 
 #' Weighted variance explained
@@ -315,7 +322,7 @@ weighted_median <- partial(weighted_quantile, prob=0.5)
 #'
 #' @export
 weighted_r2 <- function(formula, data, weights, ...) {
-  fit <- lm(formula, data=data, weights=weights)
+  fit <- lm(formula, data = data, weights = weights)
   summary(fit)$r.squared
 }
 
@@ -360,8 +367,8 @@ weighted_reliability_to_variance <- function(x, weights, r, ...) {
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cov <- function(data, weights, center=TRUE, method='unbiased') {
-  cov.wt(data, wt=weights, center=center, method=method)$cov
+weighted_cov <- function(data, weights, center = TRUE, method = "unbiased") {
+  cov.wt(data, wt = weights, center = center, method = method)$cov
 }
 
 #' Weighted correlation matrix
@@ -372,6 +379,6 @@ weighted_cov <- function(data, weights, center=TRUE, method='unbiased') {
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cor <- function(data, weights, center=TRUE, method='unbiased') {
-  cov.wt(data, wt=weights, cor=TRUE, center=center, method=method)$cor
+weighted_cor <- function(data, weights, center = TRUE, method = "unbiased") {
+  cov.wt(data, wt = weights, cor = TRUE, center = center, method = method)$cor
 }

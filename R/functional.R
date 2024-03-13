@@ -1,5 +1,5 @@
-library('tidyverse')
-library('rlang')
+library("tidyverse")
+library("rlang")
 
 #' Wrap a statistical function in a formula interface
 #'
@@ -37,7 +37,7 @@ formulaic <- function(fn) {
 #' @return a vector with a label attribute
 #' @export
 label_vector <- function(v, label) {
-  attr(v, 'label') <- label
+  attr(v, "label") <- label
   v
 }
 
@@ -57,21 +57,21 @@ label_vector <- function(v, label) {
 #'
 #' @examples
 #' df <- data.frame(...)
-#' weights <- label_vector(df$weights, 'weights')
+#' weights <- label_vector(df$weights, "weights")
 #'
 #' lm_by_ref <- function(formula, data, weights) {
-#' weights <- data[[weights]]
-#'   lm(formula, data, weights=weights)
+#'   weights <- data[[weights]]
+#'   lm(formula, data, weights = weights)
 #' }
 #'
-#' redirect_weights(lm_by_ref, by_reference=TRUE)(y ~ x, data=df, weights=weights)
+#' redirect_weights(lm_by_ref, by_reference = TRUE)(y ~ x, data = df, weights = weights)
 #'
 #' lm_wt <- function(formula, data, wt) {
-#'   lm(formula, data, weights=wt)
+#'   lm(formula, data, weights = wt)
 #' }
 #'
-#' redirect_weights(lm_wt, name='wt')(y ~ x, data=df, weights=weights)
-redirect_weights <- function(f, by_reference=FALSE, name='weights') {
+#' redirect_weights(lm_wt, name = "wt")(y ~ x, data = df, weights = weights)
+redirect_weights <- function(f, by_reference = FALSE, name = "weights") {
   function(...) {
     # arguments as actual objects
     weights <- list(...)$weights
@@ -79,12 +79,12 @@ redirect_weights <- function(f, by_reference=FALSE, name='weights') {
     args <- as.list(substitute(list(...)))[-1L]
 
     if (by_reference) {
-      wt <- attr(weights, 'label', exact=TRUE)
+      wt <- attr(weights, "label", exact = TRUE)
     } else {
       wt <- weights
     }
 
-    args[[as.symbol('weights')]] <- NULL
+    args[[as.symbol("weights")]] <- NULL
     args[[as.symbol(name)]] <- wt
     do.call(f, args)
   }
