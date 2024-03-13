@@ -30,7 +30,7 @@ as_tidy <- function(object) {
 #'   a vector of column names; or a vector, one-column data frame or one-column tibble
 #' @param replicate_weights depending on `.select` either a tidy selection (the default);
 #'   a vector of column names; or a data frame or tibble
-#' @param replicates number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
+#' @param replications number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
 #' @param .progress show a progress bar
 #' @param .select select weights from `data` using selection helpers such as `starts_with`, `matches` etc. from the tidyselect package (tidy); using column names (names); or by passing the data itself (noop)
 #' @param ...
@@ -135,16 +135,16 @@ brr_diagnose <- function(replications) {
 #' from 2000-now, allowing you to specify a model with 10 plausible values even though
 #' 2000, 2003, 2006, 2009 and 2012 assessments only include 5.
 #'
-#' @param replicates BRR replications
+#' @param replications BRR replications
 #' @param na_rm remove replications with NA estimates
 #' @param simplify return a named vector instead of `tibble(term, estimate)`
 #'
 #' @export
-coef.brr <- function(replicates, na_rm=FALSE, simplify=TRUE) {
+coef.brr <- function(replications, na_rm=FALSE, simplify=TRUE) {
   if (na_rm) {
-    results <- replicates$t0 |> drop_na(estimate)
+    results <- replications$t0 |> drop_na(estimate)
   } else {
-    results <- replicates$t0
+    results <- replications$t0
   }
 
   coefs <- results |>
@@ -192,7 +192,7 @@ brr_n <- function(t, perturbation=0.50) {
 #' from 2000-now, allowing you to specify a model with 10 plausible values even though
 #' 2000, 2003, 2006, 2009 and 2012 assessments only include 5.
 #'
-#' @param replicates BRR replicates
+#' @param replications BRR replications
 #' @param perturbation perturbation
 #' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
 #' @param na_rm na_rm
@@ -246,7 +246,7 @@ brr_var <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALS
 
 #' Imputation, estimation and total standard deviation of balanced repeated replications
 #'
-#' @param replicates BRR replicates
+#' @param replications BRR replications
 #' @param perturbation perturbation
 #' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
 #'
@@ -260,7 +260,7 @@ brr_sd <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALSE
 
 #' Confidence intervals for model parameters of the balanced repeated model fit replications
 #'
-#' @param replicates BRR replicates
+#' @param replications BRR replications
 #' @param level the confidence level required
 #' @param perturbation perturbation
 #' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
@@ -268,7 +268,7 @@ brr_sd <- function(replications, perturbation=0.50, imputation=TRUE, na_rm=FALSE
 
 #' @export
 confint.brr <- function(replications, level=0.95, perturbation=0.50, imputation=TRUE, extra=FALSE, na_rm=FALSE) {
-  # means <- replicates$t0 |> select(where(is.numeric)) |> summarize(across(everything(), mean))
+  # means <- replications$t0 |> select(where(is.numeric)) |> summarize(across(everything(), mean))
   variances <- brr_var(replications, perturbation=perturbation, imputation=imputation, na_rm=na_rm)
   if (imputation) {
     variance <- variances$total
