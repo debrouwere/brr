@@ -77,6 +77,28 @@ fits <- brr(pv1math + pv2math + pv3math ~ 1,
 confint(fits)
 ```
 
+We often want to poststratify not across the entire dataset but in blocks, e.g.
+within a country and an assessment, as shown above. To do so: (1) group by that
+block or blocks, (2) poststratify within each block level of each block using
+`group_modify` and finally (3) ungroup, e.g. to poststratify separately within
+each year of a longitudinal dataset:
+
+```r
+belgium03 <- belgium |> filter(assessment == '2003')
+belgium |> 
+  group_by(year) |>
+  group_modify(~ poststratify(.x, poststrata(.x, belgium03, PS_VARS, weights = "w_math_fstuwt")) |>
+  ungroup()
+```
+
+By default, `poststratify` will accept missingness as a valid stratification
+level, so you might get cells like ('Female', '<NA>'). This is not always a good
+idea, both because it it can produce small cells (if there is not much
+missingness) and because missingness on a particular factor may have many causes
+and does not always represent a homogeneous category. It is often a good idea to
+either remove these observations with missingness, or to impute their
+stratification factors before poststratification, e.g. with the `mice` package.
+
 ### Weighted statistics
 
 Because PISA requires the use of weighted statistics throughout, `brr` comes

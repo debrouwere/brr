@@ -20,12 +20,22 @@ na_value_to_level <- function(df, colnames) {
   df
 }
 
-# Note that even though we are only computing adjustment factors that are supposed to be applied
-# to pre-existing weights, we must still know about those weights and cannot simply rely on
-# the unweighted `n` of observations. For example, if a country has, by proportion, twice as many
-# first-generation immigrants as the target country, but also happens to undersample them by a factor
-# of two relative to the target, the unweighted adjustment factor would be 1, when it ought to be 0.5.
+
+#' Calculate weight adjustment factors so that the proportion of each strata in `df` matches the proportion in `df_target`
+#'
+#' @param df data frame for which to calculate the adjustment factors
+#' @param df_target data frame that serves as the target or baseline
+#' @param factors factor variables on which to poststratify
+#' @param weights column name of a column that contains observation weights
+#'
+#' @export
 poststrata <- function(df, df_target, factors, weights=NULL) {
+  # Note that even though we are only computing adjustment factors that are supposed to be applied
+  # to pre-existing weights, we must still know about those weights and cannot simply rely on
+  # the unweighted `n` of observations. For example, if a country has, by proportion, twice as many
+  # first-generation immigrants as the target country, but also happens to undersample them by a factor
+  # of two relative to the target, the unweighted adjustment factor would be 1, when it ought to be 0.5.
+
   if (is.null(weights)) {
     count_wt <- count
   } else {
@@ -55,13 +65,20 @@ poststrata <- function(df, df_target, factors, weights=NULL) {
   counts
 }
 
-
-# also known (inaccurately) as trimming and truncating
-#
-# (note that it would also be possible to clip the weights of actual
-# observations rather than the weight adjustment factors in the strata,
-# but that is not covered by this function)
+#' Clip strata
+#'
+#' @description
+#' also known (inaccurately) as trimming and truncating
+#'
+#' @param strata strata with weight adjustment factors, as produced by `poststrata`
+#' @param upper maximum value to which to clip weight adjustment factors
+#'
+#' @export
 clip_strata <- function(strata, upper=5) {
+  # (note that it would also be possible to clip the weights of actual
+  # observations rather than the weight adjustment factors in the strata,
+  # but that is not covered by this function)
+
   n <- strata$n
   w <- strata$w
   # adjust upper to account for renormalization
@@ -75,6 +92,11 @@ clip_strata <- function(strata, upper=5) {
   strata
 }
 
+#' Drop strata that include NA factor levels
+#'
+#' @param strata strata with weight adjustment factors, as produced by `poststrata`
+#'
+#' @export
 drop_na_strata <- function(strata) {
   n <- strata$n
   w <- strata$w
@@ -89,19 +111,12 @@ drop_na_strata <- function(strata) {
   strata
 }
 
-
-# NOTE: to poststratify in blocks, (1) group by that block or blocks, (2) poststratify within each
-# block level of each block using `group_modify` and finally (3) ungroup, e.g. to poststratify
-# separately within each year of a longitudinal dataset:
-#
-#    belgium |> group_by(year) |> group_modify(~ poststratify(.x, belgium03, c('gender', 'immig'))) |> ungroup()
-#
-# By default, `poststratify` will accept missingness as a valid stratification level,
-# so you might get cells like ('Female', '<NA>'). This is not always a good idea, both because it
-# it can produce small cells (if there is not much missingness) and because missingness on a particular factor
-# may have many causes and does not always represent a homogeneous category. It is often a good idea to either
-# remove these observations with missingness, or to impute their stratification factors.
-
+#' Poststratify a dataset with strata weight adjustment factors
+#'
+#' @param df a data frame
+#' @param strata strata with weight adjustment factors, as produced by `poststrata(df, ...)`
+#' @param name rename the weight adjustment factors to `name`
+#' @export
 poststratify <- function(df, strata, name='weight') {
   weight_col <- c('w')
   names(weight_col) <- name
@@ -118,11 +133,6 @@ poststratify <- function(df, strata, name='weight') {
   # two NA values are considered identical for the purposes of joining poststratification weights
   # (this is currently the default for `left_join`, added for clarity)
   left_join(df, strata[, c(factors, name)], by=factors, na_matches='na')
-}
-
-# deprecated interface to `poststratify`
-poststratify_df <- function(df, df_target, factors, name='weight', weights=NULL) {
-  poststratify(df, poststrata(df, df_target, factors, weights))
 }
 
 
@@ -154,41 +164,55 @@ normalize <- function(x) {
   x / max(x)
 }
 
-# For every stratification factor that is added, the amount of strata
-# multiplies by the k levels of that factor, so even with large samples
-# it is quite common to end up with a handful of combinations that match
-# only a handful of observations. This can lead to extreme weight adjustment
-# factors, which technically are not biased but nevertheless lead to very
-# unstable estimates. We can deal with extreme weights directly (by clipping
-# to a maximum of e.g. 5 or 10), indirectly by collapsing small cells
-# until each cell has at least n_min observations, or both. (You should also
-# consider dropping observations with NA categorizations for stratification
-# factors.)
-#
-# The collapse algorithm below is fairly advanced in a couple of ways:
-#
-# * the default strategy (distance) will look for opportunities to collapse small,
-#   similar cells across factor, rather than collapsing cells within one factor
-#   at a time as most algorithms do
-# * it allows for any two levels within a factor to have a prespecified distance,
-#   a distance inferred from the ordering of an ordered factor, or an equal
-#   distance between all levels
-#
-# For a prespecified distance, the algorithm looks for a `coordinates` attribute:
-#
-#   x <- factor(c(1, 1, 3, 2), levels=c('disagree', 'disagree slightly', 'agree nor disagree', 'agree'))
-#   attr(x, 'coordinates') <- c(1, 2, 3, 5)
-#
-# strategy: distance|adjacency
-#
-# * the distance algorithm prefers to merge closely related cells regardless
-#   of the factor in which levels are to be collapsed
-# * the adjacency algorithm prefers to merge cells by collapsing levels
-#   in the last factor (by column position) before moving to the next-to-last
-#   factor and so on
-#
-# (to test the adjacency strategy, which is still somewhat experimental,
-# specify strata in reverse order and see how that changes what cells get merged)
+
+
+#' Collapse small strata cells
+#'
+#' @description
+#' For every stratification factor that is added, the amount of strata
+#' multiplies by the k levels of that factor, so even with large samples it is
+#' quite common to end up with a handful of combinations that match only a
+#' handful of observations. This can lead to extreme weight adjustment factors,
+#' which technically are not biased but nevertheless lead to very unstable
+#' estimates. We can deal with extreme weights directly (by clipping to a
+#' maximum of e.g. 5 or 10), indirectly by collapsing small cells until each
+#' cell has at least n_min observations, or both. (You should also consider
+#' dropping observations with NA categorizations for stratification factors.)
+#'
+#' The collapse algorithm below is fairly advanced in a couple of ways:
+#'
+#'   * the default strategy (distance) will look for opportunities to collapse small,
+#'     similar cells across factor, rather than collapsing cells within one factor
+#'     at a time as most algorithms do
+#'   * it allows for any two levels within a factor to have a prespecified distance,
+#'     a distance inferred from the ordering of an ordered factor, or an equal
+#'     distance between all levels
+#'
+#' For a prespecified distance, the algorithm looks for a `coordinates`
+#' attribute:
+#'
+#'   x <- factor(
+#'     x=c(1, 1, 3, 2),
+#'     levels=c('disagree', 'disagree slightly', 'agree nor disagree', 'agree')
+#'     )
+#'   attr(x, 'coordinates') <- c(1, 2, 3, 5)
+#'
+#' The two strategies that are implemented by `collapse_strata` are:
+#'
+#'   * the distance algorithm prefers to merge closely related cells regardless
+#'     of the factor in which levels are to be collapsed
+#'   * the adjacency algorithm prefers to merge cells by collapsing levels
+#'     in the last factor (by column position) before moving to the next-to-last
+#'     factor and so on; more or less as described in Little 1993
+#'
+#' (To test the adjacency strategy, which is still somewhat experimental,
+#' specify strata in reverse order and see how that changes what cells get merged.)
+#'
+#' @param strata strata with weight adjustment factors, as produced by `poststrata(df, ...)`
+#' @param n_min cells with fewer than `n_min` (weighted) observations are collapsed together with a nearby cell
+#' @param strategy `distance` (recommended) or `adjacency` (classic)
+#'
+#' @export
 collapse_strata <- function(strata, n_min=10, strategy='distance') {
   if (!(strategy %in% c('distance', 'adjacency'))) {
     stop(str_glue('{strategy} is not a valid collapse_strata strategy, choose from: distance, adjacency'))
