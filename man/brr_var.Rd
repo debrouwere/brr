@@ -7,13 +7,13 @@
 brr_var(replications, perturbation = 0.5, imputation = TRUE, na_rm = FALSE)
 }
 \arguments{
+\item{replications}{BRR replications}
+
 \item{perturbation}{perturbation}
 
 \item{imputation}{Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.}
 
 \item{na_rm}{na_rm}
-
-\item{replicates}{BRR replicates}
 }
 \value{
 A list of mean and variance component vectors.

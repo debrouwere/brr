@@ -14,6 +14,8 @@
 )
 }
 \arguments{
+\item{replications}{BRR replications}
+
 \item{level}{the confidence level required}
 
 \item{perturbation}{perturbation}
@@ -21,8 +23,6 @@
 \item{imputation}{Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.}
 
 \item{extra}{include standard error and variance components in the output}
-
-\item{replicates}{BRR replicates}
 }
 \description{
 Confidence intervals for model parameters of the balanced repeated model fit replications

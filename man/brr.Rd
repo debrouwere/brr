@@ -35,7 +35,7 @@ a vector of column names; or a data frame or tibble}
 
 \item{...}{}
 
-\item{replicates}{number of replications to perform (for convenience, you can also just pass fewer columns to \code{replicate_weights})}
+\item{replications}{number of replications to perform (for convenience, you can also just pass fewer columns to \code{replicate_weights})}
 }
 \description{
 Balanced repeated replications

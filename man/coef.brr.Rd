@@ -4,10 +4,10 @@
 \alias{coef.brr}
 \title{Extract model coefficients from the balanced repeated replications of a model fit}
 \usage{
-coef.brr(replicates, na_rm = FALSE, simplify = TRUE)
+coef.brr(replications, na_rm = FALSE, simplify = TRUE)
 }
 \arguments{
-\item{replicates}{BRR replications}
+\item{replications}{BRR replications}
 
 \item{na_rm}{remove replications with NA estimates}
 
