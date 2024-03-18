@@ -4,7 +4,7 @@
 \alias{coef.brr}
 \title{Extract model coefficients from the balanced repeated replications of a model fit}
 \usage{
-coef.brr(replications, na_rm = FALSE, simplify = TRUE)
+\method{coef}{brr}(replications, na_rm = FALSE, simplify = TRUE)
 }
 \arguments{
 \item{replications}{BRR replications}

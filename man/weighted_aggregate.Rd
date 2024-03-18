@@ -24,9 +24,9 @@ without any groups to condition on, consider using \code{brr::formulaic} instead
 a simple statistical function.
 }
 \examples{
-df <- tibble(x=1:10, y=11:20, w=1 + 1:10/10, u=rep(1, 10), g=rep(c(1,2), each=5))
+df <- tibble(x = 1:10, y = 11:20, w = 1 + 1:10 / 10, u = rep(1, 10), g = rep(c(1, 2), each = 5))
 weighted_aggregate(x + y ~ g, weighted_mean, df, df$w)
 # or more succinct...
-weighted_mean_by <- partial(weighted_aggregate, statistic=weighted_mean)
+weighted_mean_by <- partial(weighted_aggregate, statistic = weighted_mean)
 weighted_mean_by(x + y ~ g, df, df$w)
 }

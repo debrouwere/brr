@@ -45,11 +45,11 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
   switch(.select,
     tidy = {
       final_weights_selectors <- rlang::enquo(final_weights)
-      final_ixs <- eval_select(final_weights_selectors, data = data)
+      final_ixs <- tidyselect::eval_select(final_weights_selectors, data = data)
       final_weights <- data[, final_ixs]
 
       replicate_weights_selectors <- rlang::enquo(replicate_weights)
-      replicate_ixs <- eval_select(replicate_weights_selectors, data = data)
+      replicate_ixs <- tidyselect::eval_select(replicate_weights_selectors, data = data)
       replicate_weights <- data[, replicate_ixs]
     },
     names = {
@@ -74,7 +74,7 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
   names(formulae) <- outcomes
   conditions$formula <- formulae[conditions$outcome]
 
-  progressor <- cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
+  progressor <- cli::cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
 
   replicate <- function(condition) {
     if (.progress) cli::cli_progress_update(id = progressor)

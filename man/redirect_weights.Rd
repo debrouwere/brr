@@ -23,18 +23,18 @@ so they match the signature expected by \code{brr:brr}.
 }
 \examples{
 df <- data.frame(...)
-weights <- label_vector(df$weights, 'weights')
+weights <- label_vector(df$weights, "weights")
 
 lm_by_ref <- function(formula, data, weights) {
-weights <- data[[weights]]
-  lm(formula, data, weights=weights)
+  weights <- data[[weights]]
+  lm(formula, data, weights = weights)
 }
 
-redirect_weights(lm_by_ref, by_reference=TRUE)(y ~ x, data=df, weights=weights)
+redirect_weights(lm_by_ref, by_reference = TRUE)(y ~ x, data = df, weights = weights)
 
 lm_wt <- function(formula, data, wt) {
-  lm(formula, data, weights=wt)
+  lm(formula, data, weights = wt)
 }
 
-redirect_weights(lm_wt, name='wt')(y ~ x, data=df, weights=weights)
+redirect_weights(lm_wt, name = "wt")(y ~ x, data = df, weights = weights)
 }
