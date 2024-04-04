@@ -23,90 +23,100 @@ as_tidy <- function(object) {
 
 #' Balanced repeated replications
 #'
-#' @param formula formula
+#' @param formula a formula or a vector of outcomes
 #' @param statistic statistical function or fitter with signature `fitter(data, weights, ...)`
 #' @param data data
-#' @param final_weights depending on `.select` either a tidy selection (the default);
-#'   a vector of column names; or a vector, one-column data frame or one-column tibble
-#' @param replicate_weights depending on `.select` either a tidy selection (the default);
-#'   a vector of column names; or a data frame or tibble
+#' @param final_weights a tidy selection or a vector of column names
+#' @param replicate_weights a tidy selection or a vector of column names
 #' @param replications number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
+#' @param .by group observations with `.by` when working with long format data where every plausible value has its own row; allows analysis of multiple imputations of the predictors without a performance hit
 #' @param .progress show a progress bar
-#' @param .select select weights from `data` using selection helpers such as `starts_with`, `matches` etc. from the tidyselect package (tidy); using column names (names); or by passing the data itself (noop)
 #' @param ...
 #'
 #' @export
-brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .progress = TRUE, .select = "tidy", ...) {
-  outcomes <- all.vars(rlang::f_lhs(formula))
-  predictors <- rlang::f_text(formula)
+brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .by = "", .progress = TRUE, ...) {
+  # fast path for simple aggregates of the entire dataset
+  if (rlang::is_formula(formula)) {
+    outcomes <- all.vars(rlang::f_lhs(formula))
+    predictors <- rlang::f_text(formula)
+  } else {
+    outcomes <- formula
+    predictors <- NA
+  }
 
   # select weights from `data` using selection helpers such as `starts_with`,
   # `matches` etc. from the tidyselect package, using nonstandard evaluation
-  switch(.select,
-    tidy = {
-      final_weights_selectors <- rlang::enquo(final_weights)
-      final_ixs <- tidyselect::eval_select(final_weights_selectors, data = data)
-      final_weights <- data[, final_ixs]
-
-      replicate_weights_selectors <- rlang::enquo(replicate_weights)
-      replicate_ixs <- tidyselect::eval_select(replicate_weights_selectors, data = data)
-      replicate_weights <- data[, replicate_ixs]
-    },
-    names = {
-      final_weights <- data[, final_weights]
-      replicate_weights <- data[, replicate_weights]
-    },
-    {
-      # by default, we take `final_weights` and `replicate_weights` as-is,
-      # which should be in the form of data frames or tibbles
-    }
-  )
-
+  final_weights_quosure <- rlang::enquo(final_weights)
+  final_weights <- data |> select({{ final_weights_quosure }})
+  replicate_weights_quosure <- rlang::enquo(replicate_weights)
+  replicate_weights <- data |> select({{ replicate_weights_quosure }})
   weights <- bind_cols(final_weights, replicate_weights[, 1:r])
-  final_weights_colname <- colnames(final_weights)[1]
 
   conditions <- expand_grid(
     outcome = outcomes,
-    weights = colnames(weights)
+    weights = colnames(weights),
+    imputation = ifelse(str_length(.by), unique(data[[, .by]]), 1)
   )
-
-  formulae <- str_c(outcomes, " ~ ", predictors)
-  names(formulae) <- outcomes
-  conditions$formula <- formulae[conditions$outcome]
-
-  progressor <- cli::cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
-
-  replicate <- function(condition) {
-    if (.progress) cli::cli_progress_update(id = progressor)
-    as_tidy(statistic(
-      formula = as.formula(condition$formula),
-      data = data,
-      weights = label_vector(weights[[condition$weights]], condition$weights),
-      ...
-    ))
+  conditions$is_final <- conditions$weights == colnames(final_weights)[1]
+  conditions$formula <- if (rlang::is_formula(formula)) {
+    formulae <- str_c(outcomes, " ~ ", predictors)
+    names(formulae) <- outcomes
+    formulae[conditions$outcome]
+  } else {
+    NA
   }
+
+  if (.progress) {
+    progressor <- cli::cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
+    tick <- invisibly(\() cli::cli_progress_update(id = progressor))
+  } else {
+    tick <- identity
+  }
+
+  data <- data |> select(all_of(outcomes))
+
+  replicate <- if (rlang::is_formula(formula)) {
+    function(condition) {
+      statistic(
+        formula = as.formula(condition$formula),
+        data = data,
+        weights = label_vector(weights[[condition$weights]], condition$weights),
+        ...
+      )
+    }
+  } else {
+    function(condition) {
+      statistic(
+        x = data |> pull(condition$outcome),
+        weights = weights |> pull(condition$weights),
+        ...
+      )
+    }
+  }
+
+  replicate_tidily <- compose(tick, as_tidy, replicate)
 
   replications <- conditions |>
     rowwise() |>
     reframe(
       outcome = outcome,
-      weights = weights,
       formula = formula,
-      results = replicate(.data)
+      weights = weights,
+      imputation = imputation,
+      is_final = is_final,
+      results = replicate_tidily(.data)
     ) |>
     unnest_wider(results)
 
-  cli::cli_progress_done()
-
+  if (.progress) cli::cli_progress_done()
 
   # t0: W_FSTUWT are the final weights, used to compute point estimates and imputation variance
-  #     (imputation variance arises due to IRT scaling, where we assume proficiency is latent)
+  #     (imputation variance arises due to matrix sampling)
   # t:  W_FSTR* are the replicate weights, used to compute the estimation variance
   #     (the estimates themselves are then discarded)
-
   structure(list(
-    t0 = replications |> filter(weights == {{ final_weights_colname }}),
-    t  = replications |> filter(weights != {{ final_weights_colname }})
+    t0 = replications |> filter(is_final),
+    t  = replications |> filter(!is_final)
   ), class = "brr")
 }
 

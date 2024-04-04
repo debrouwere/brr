@@ -89,3 +89,34 @@ redirect_weights <- function(f, by_reference = FALSE, name = "weights") {
     do.call(f, args)
   }
 }
+
+#' Make any function behave like `identity`, with side effects
+#'
+#' @param f a function without parameters, run for its side effects
+#'
+#' @return a wrapped function that returns it argument, like `identity`
+#' @export
+#'
+#' @examples
+#' invisibly(\() print("hello world"))(4) ^ 2
+invisibly <- function(f) {
+  function(x) {
+    f()
+    x
+  }
+}
+
+
+#' Wrap a function to match the return value of `purrr:safely`, without capturing errors
+#'
+#' @param f a function to wrap
+#'
+#' @export
+unsafely <- function(f) {
+  function(...) {
+    list(
+      result=f(...),
+      error=NULL
+    )
+  }
+}
