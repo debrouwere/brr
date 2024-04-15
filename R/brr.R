@@ -73,8 +73,6 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
     tick <- identity
   }
 
-  data <- data |> select(all_of(outcomes))
-
   replicate <- if (rlang::is_formula(formula)) {
     function(condition) {
       statistic(
