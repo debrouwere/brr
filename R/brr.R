@@ -35,16 +35,19 @@ as_tidy <- function(object) {
 #'
 #' @export
 brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .by = "", .progress = TRUE, ...) {
+  is_marginal <- !rlang::is_formula(formula)
+  is_long_format <- str_length(.by) > 0
+
   # fast path for simple aggregates of the entire dataset
-  if (rlang::is_formula(formula)) {
-    outcomes <- all.vars(rlang::f_lhs(formula))
-    predictors <- rlang::f_text(formula)
-  } else {
+  if (is_marginal) {
     outcomes <- formula
     predictors <- NA
+  } else {
+    outcomes <- all.vars(rlang::f_lhs(formula))
+    predictors <- rlang::f_text(formula)
   }
 
-  is_long_format <- str_length(.by) > 0
+  # TODO: check whether outcomes are present in the dataset
 
   # select weights from `data` using selection helpers such as `starts_with`,
   # `matches` etc. from the tidyselect package, using nonstandard evaluation
@@ -54,14 +57,9 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
   replicate_weights <- data |> select({{ replicate_weights_quosure }})
   weights <- bind_cols(final_weights, replicate_weights[, 1:r])
 
-  conditions <- expand_grid(
-    outcome = outcomes,
-    weights = colnames(weights)
-  )
-
   # harmonization of wide and long format for plausible values
   imputations <- if (is_long_format) {
-    unique(data[[, .by]])
+    unique(data[[.by]])
   } else {
     as.integer(str_extract(unique(outcomes), "\\d+"))
   }
@@ -69,10 +67,12 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
   conditions <- tibble(outcome = outcomes, imputation = imputations) |>
     expand_grid(weights = colnames(weights))
   conditions$is_final <- conditions$weights == colnames(final_weights)[1]
-  conditions$formula <- if (rlang::is_formula(formula)) {
+  conditions$formula <- if (!is_marginal) {
     formulae <- str_c(outcomes, " ~ ", predictors)
     names(formulae) <- outcomes
     formulae[conditions$outcome]
+  } else {
+    NA
   }
 
   if (.progress) {
@@ -82,20 +82,21 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
     tick <- identity
   }
 
-  replicate <- if (rlang::is_formula(formula)) {
+  replicate <- if (is_marginal) {
     function(condition) {
+      ixs <- data$imputation == condition$imputation
       statistic(
-        formula = as.formula(condition$formula),
-        data = data,
-        weights = label_vector(weights[[condition$weights]], condition$weights),
+        x = data |> pull(condition$outcome) |> keep_at(ixs),
+        weights = weights |> pull(condition$weights) |> keep_at(ixs),
         ...
       )
     }
   } else {
     function(condition) {
       statistic(
-        x = data |> pull(condition$outcome),
-        weights = weights |> pull(condition$weights),
+        formula = as.formula(condition$formula),
+        data = data,
+        weights = label_vector(weights[[condition$weights]], condition$weights),
         ...
       )
     }
@@ -194,7 +195,7 @@ tidy.brr <- function(replications, na_rm = FALSE) {
 
 brr_n <- function(t, perturbation = 0.50) {
   n <- list()
-  n$imputations <- length(unique(t$imputations))
+  n$imputations <- length(unique(t$imputation))
   n$replications <- length(unique(t$weights))
   # denominator for variance calculations using Fay's method
   n$effective_replications <- n$replications * (1 - perturbation)^2
@@ -228,7 +229,7 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
 
   n <- brr_n(t, perturbation)
 
-  # means by outcome
+  # means by plausible value
   m0 <- t0 |>
     group_by(term, imputation) |>
     summarize(mean = mean(estimate)) |>
@@ -241,7 +242,7 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
 
   t0 <- full_join(t0, mm0, by = c("term")) |>
     mutate(squared_deviation = (estimate - mean)^2)
-  t <- full_join(t, m0, by = c("term", "outcome")) |>
+  t <- full_join(t, m0, by = c("term", "imputation")) |>
     mutate(squared_deviation = (estimate - mean)^2)
 
   # FIXME: n$imputations may well be inaccurate if na_rm is selected!
@@ -258,7 +259,7 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
   # quite back to 1; why PISA recommends this approach eludes me but it is
   # what it says in the technical manual
   variance <- full_join(imputation_variance, estimation_variance, by = "term")
-  variance$total <- variance$estimation + (1 + 1 / n$outcomes) * variance$imputation
+  variance$total <- variance$estimation + (1 + 1 / n$imputations) * variance$imputation
   variance
 }
 

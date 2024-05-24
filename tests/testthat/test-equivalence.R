@@ -67,6 +67,7 @@ test_that("our estimates correspond to the official publication", {
   }
 })
 
+
 test_that("missing outcomes are handled appropriately", {
   pisa <- open_dataset(PISA_PATH) |>
     select(starts_with("pv") & ends_with("math"), "country_iso", "cycle", starts_with("w_math")) |>
@@ -103,4 +104,40 @@ test_that("missing outcomes are handled appropriately", {
   expect_equal(confint(fits10), tibble(term = "(Intercept)", estimate = NaN, lower = NaN, upper = NaN))
   expect_equal(coef(fits5), coef(fits10, na_rm = TRUE))
   expect_equal(brr_var(fits5), brr_var(fits10, na_rm = TRUE))
+})
+
+
+test_that("brr works with long format data", {
+  pisa_wide <- open_dataset(PISA_PATH) |>
+    select(starts_with("pv") & ends_with("math"), "country_iso", "cycle", starts_with("w_math")) |>
+    filter(cycle == 2000, country_iso == "BEL") |>
+    collect() |>
+    drop_na(w_math_student_final)
+
+  # long format is less forgiving re: superfluous pv columns so we specifically select 1-5
+  pisa_long <- pisa_wide |>
+    pivot_longer(matches("pv[12345]math"),
+                 names_pattern = "pv(\\d{1,2})(\\w+)",
+                 names_to = c("imputation", ".value")
+    )
+
+  fit_wide <- brr(c("pv1math", "pv2math", "pv3math", "pv4math", "pv5math"),
+    statistic = weighted_mean,
+    data = pisa_wide,
+    final_weights = matches("w_math_student_final"),
+    replicate_weights = starts_with("w_math_student_r"),
+    .progress = FALSE
+  )
+
+  fit_long <- brr("math",
+    statistic = weighted_mean,
+    data = pisa_long,
+    final_weights = matches("w_math_student_final"),
+    replicate_weights = starts_with("w_math_student_r"),
+    .by = 'imputation',
+    .progress = FALSE
+  )
+
+  expect_equal(fit_wide$t0$estimate, fit_long$t0$estimate)
+  expect_equal(fit_wide$t$estimate, fit_long$t$estimate)
 })
