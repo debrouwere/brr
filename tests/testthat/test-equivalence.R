@@ -1,6 +1,8 @@
 library("arrow")
 library("dplyr")
 
+PISA_PATH <- Sys.getenv("BRR_PISA_RX_PATH")
+
 EU15_ISO <- c("BEL", "DNK", "DEU", "FIN", "FRA", "GRC", "IRL", "ITA", "LUX", "NLD", "AUT", "PRT", "ESP", "GBR", "SWE")
 OECD30_ISO <- c("AUT", "BEL", "CAN", "DNK", "FRA", "DEU", "GRC", "ISL", "IRL", "ITA", "LUX", "NLD", "NOR", "PRT", "ESP", "SWE", "CHE", "TUR", "GBR", "USA", "JPN", "FIN", "AUS", "NZL", "POL", "HUN", "CZE", "SVK", "KOR", "MEX")
 
@@ -13,9 +15,9 @@ OECD30_ISO <- c("AUT", "BEL", "CAN", "DNK", "FRA", "DEU", "GRC", "ISL", "IRL", "
 # suite, but only occasionally to catch regressions after big changes to the
 # core `brr::brr` code.
 #
-# To include this test in a test run from within R, use:
+# To include this test in a test run from within R, use a `.Renviron` file or:
 #
-#     Sys.setenv(BRR_TEST_EQUIVALENCE=1); devtools::test()
+#     Sys.setenv(BRR_TEST_EQUIVALENCE="ON"); devtools::test()
 #
 # We test to a tolerance of 0.001 (1e-3) at the aggregate level: `expect_equal`
 # tests `mean(abs(x - y) < tolerance`; for mean(reading) in 2022 these tests
@@ -28,25 +30,24 @@ OECD30_ISO <- c("AUT", "BEL", "CAN", "DNK", "FRA", "DEU", "GRC", "ISL", "IRL", "
 # If differences are observed only in a very small number of cases, the culprit
 # is more likely to be small differences in the published PISA dataset and the
 # dataset used to generate the official reports; these are usually identical but
-# sometimes a handful of observations get added or disappear, presumably due to
+# sometimes a handful of observations get added or disappear, presumably during
 # last-minute quality control.
 test_that("our estimates correspond to the official publication", {
-  if (Sys.getenv("BRR_TEST_EQUIVALENCE") != "1") skip()
+  if (Sys.getenv("BRR_TEST_EQUIVALENCE") != "ON") skip()
 
   expected <- read_csv("../scores.csv", show_col_types = FALSE)
-  expected$term <- str_c(expected$country_iso, ":", expected$assessment)
+  expected$term <- str_c(expected$country_iso, ":", expected$cycle)
 
-  pisa <- open_dataset("../../../pisa.rx.parquet/build/pisa.rx.parquet") |>
-    select(starts_with("pv") & ends_with("read"), "country_iso", "assessment", starts_with("w_read")) |>
-    filter(assessment >= 2015, country_iso %in% OECD30_ISO) |>
+  pisa <- open_dataset(PISA_PATH) |>
+    select(starts_with("pv") & ends_with("literacy"), "country_iso", "cycle", starts_with("w_literacy")) |>
+    filter(cycle >= 2015, country_iso %in% OECD30_ISO) |>
     collect()
-  fits <- brr(pv1read + pv2read + pv3read + pv4read + pv5read + pv6read + pv7read + pv8read + pv9read + pv10read ~ country_iso + assessment,
+  fits <- brr(pv1literacy + pv2literacy + pv3literacy + pv4literacy + pv5literacy + pv6literacy + pv7literacy + pv8literacy + pv9literacy + pv10literacy ~ country_iso + cycle,
     statistic = weighted_mean_by,
     data = pisa,
-    final_weights = matches("w_read_fstuwt"),
-    replicate_weights = starts_with("w_read_fstr"),
+    final_weights = matches("w_literacy_student_final"),
+    replicate_weights = starts_with("w_literacy_student_r"),
     r = 80,
-    .select = "tidy",
     .progress = FALSE
   )
 
@@ -57,39 +58,39 @@ test_that("our estimates correspond to the official publication", {
 
   expect_equal(as.numeric(comparisons$estimate), comparisons$mean, tolerance = 1e-3)
   for (ix in which(abs(as.numeric(comparisons$estimate) - comparisons$mean) > 1e-3)) {
-    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {assessment}: expected {mean} but computed {estimate}"))
+    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {cycle}: expected mu = {mean} but computed {estimate}"))
   }
 
   expect_equal(as.numeric(comparisons$se), comparisons$error, tolerance = 1e-3)
   for (ix in which(abs(as.numeric(comparisons$estimate) - comparisons$mean) > 1e-3)) {
-    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {assessment}: expected {error} but computed {se}"))
+    warning(str_glue_data(comparisons[ix, ], "Discrepancy for {country_iso} {domain} in {cycle}: expected se = {error} but computed {se}"))
   }
 })
 
 test_that("missing outcomes are handled appropriately", {
-  pisa <- open_dataset("../../../pisa.rx.parquet/build/pisa.rx.parquet") |>
-    select(starts_with("pv") & ends_with("math"), "country_iso", "assessment", starts_with("w_math")) |>
-    filter(assessment == 2000, country_iso == "BEL") |>
+  pisa <- open_dataset(PISA_PATH) |>
+    select(starts_with("pv") & ends_with("math"), "country_iso", "cycle", starts_with("w_math")) |>
+    filter(cycle == 2000, country_iso == "BEL") |>
     collect()
 
   # there are two kinds of missingness here:
   # * we don't actually have pv6-10 (should be dealt with by `brr_bar`, `coef` and `confint`)
   # * math scores are not available for every student (should be dealt with by the `statistic`,
   #   but note that `brr` can pass an additional argument such as `na.rm` to `statistic`)
-  fits10 <- brr(pv1math + pv2math + pv3math + pv4math + pv5math + pv6math + pv7math + pv8math + pv9math + pv10math ~ 1,
-    statistic = pull_weighted_mean,
+  fits10 <- brr(c("pv1math", "pv2math", "pv3math", "pv4math", "pv5math", "pv6math", "pv7math", "pv8math", "pv9math", "pv10math"),
+    statistic = weighted_mean,
     data = pisa,
-    final_weights = matches("w_math_fstuwt"),
-    replicate_weights = starts_with("w_math_fstr"),
+    final_weights = matches("w_math_student_final"),
+    replicate_weights = starts_with("w_math_student_r"),
     .progress = FALSE,
     na_rm = TRUE
   )
 
-  fits5 <- brr(pv1math + pv2math + pv3math + pv4math + pv5math ~ 1,
-    statistic = pull_weighted_mean,
+  fits5 <- brr(c("pv1math", "pv2math", "pv3math", "pv4math", "pv5math"),
+    statistic = weighted_mean,
     data = pisa,
-    final_weights = matches("w_math_fstuwt"),
-    replicate_weights = starts_with("w_math_fstr"),
+    final_weights = matches("w_math_student_final"),
+    replicate_weights = starts_with("w_math_student_r"),
     .progress = FALSE,
     na_rm = TRUE
   )
