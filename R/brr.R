@@ -44,6 +44,8 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
     predictors <- NA
   }
 
+  is_long_format <- str_length(.by) > 0
+
   # select weights from `data` using selection helpers such as `starts_with`,
   # `matches` etc. from the tidyselect package, using nonstandard evaluation
   final_weights_quosure <- rlang::enquo(final_weights)
@@ -54,16 +56,23 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
 
   conditions <- expand_grid(
     outcome = outcomes,
-    weights = colnames(weights),
-    imputation = ifelse(str_length(.by), unique(data[[, .by]]), 1)
+    weights = colnames(weights)
   )
+
+  # harmonization of wide and long format for plausible values
+  imputations <- if (is_long_format) {
+    unique(data[[, .by]])
+  } else {
+    as.integer(str_extract(unique(outcomes), "\\d+"))
+  }
+
+  conditions <- tibble(outcome = outcomes, imputation = imputations) |>
+    expand_grid(weights = colnames(weights))
   conditions$is_final <- conditions$weights == colnames(final_weights)[1]
   conditions$formula <- if (rlang::is_formula(formula)) {
     formulae <- str_c(outcomes, " ~ ", predictors)
     names(formulae) <- outcomes
     formulae[conditions$outcome]
-  } else {
-    NA
   }
 
   if (.progress) {
@@ -185,7 +194,7 @@ tidy.brr <- function(replications, na_rm = FALSE) {
 
 brr_n <- function(t, perturbation = 0.50) {
   n <- list()
-  n$outcomes <- length(unique(t$outcome))
+  n$imputations <- length(unique(t$imputations))
   n$replications <- length(unique(t$weights))
   # denominator for variance calculations using Fay's method
   n$effective_replications <- n$replications * (1 - perturbation)^2
@@ -221,7 +230,7 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
 
   # means by outcome
   m0 <- t0 |>
-    group_by(term, outcome) |>
+    group_by(term, imputation) |>
     summarize(mean = mean(estimate)) |>
     ungroup()
 
@@ -235,10 +244,10 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
   t <- full_join(t, m0, by = c("term", "outcome")) |>
     mutate(squared_deviation = (estimate - mean)^2)
 
-  # FIXME: n$outcomes may well be inaccurate if na_rm is selected!
+  # FIXME: n$imputations may well be inaccurate if na_rm is selected!
   imputation_variance <- t0 |>
     group_by(term) |>
-    summarize(imputation = sum(squared_deviation) / (n$outcomes - 1))
+    summarize(imputation = sum(squared_deviation) / (n$imputations - 1))
 
   estimation_variance <- t |>
     group_by(term) |>
