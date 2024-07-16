@@ -58,6 +58,7 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
   weights <- bind_cols(final_weights, replicate_weights[, 1:r])
 
   # harmonization of wide and long format for plausible values
+  # FIXME: \d+ is too brittle, would also match pv1read1, st01q01 etc.
   imputations <- if (is_long_format) {
     unique(data[[.by]])
   } else {
@@ -82,23 +83,34 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
     tick <- identity
   }
 
+  # TODO: can we support long and wide format without having these parallel code
+  # paths all over the place? Convert internally or something like that?
   replicate <- if (is_marginal) {
     function(condition) {
-      ixs <- data$imputation == condition$imputation
-      statistic(
-        x = data |> pull(condition$outcome) |> keep_at(ixs),
-        weights = weights |> pull(condition$weights) |> keep_at(ixs),
-        ...
-      )
+      x <- data |> pull(condition$outcome)
+      w <- weights |> pull(condition$weights)
+
+      if (is_long_format) {
+        ixs <- data[[.by]] == condition$imputation
+        x <- x |> keep_at(ixs)
+        w <- w |> keep_at(ixs)
+      }
+
+      statistic(x = x, weights = w, ...)
     }
   } else {
     function(condition) {
-      statistic(
-        formula = as.formula(condition$formula),
-        data = data,
-        weights = label_vector(weights[[condition$weights]], condition$weights),
-        ...
-      )
+      f <- as.formula(condition$formula)
+      x <- data
+      w <- label_vector(weights[[condition$weights]], condition$weights)
+
+      if (is_long_format) {
+        ixs <- data[[.by]] == condition$imputation
+        x <- x |> keep_at(ixs)
+        w <- w |> keep_at(ixs)
+      }
+
+      statistic(formula = f, data = x, weights = w, ...)
     }
   }
 
