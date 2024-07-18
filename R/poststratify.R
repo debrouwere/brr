@@ -64,7 +64,8 @@ poststrata <- function(df, df_target, factors, weights = NULL) {
   # but it can happen when there are fewer factor levels for the reference block than for
   # other blocks, e.g. a <NA> or other level in df but not df_target)
   counts <- drop_na(counts)
-  counts$w <- counts$p_target / counts$p
+  # we can't reweight that which does not exist (avoid infinite weights)
+  counts$w <- if_else(counts$n == 0.0, 0.0, counts$p_target / counts$p)
 
   counts
 }
