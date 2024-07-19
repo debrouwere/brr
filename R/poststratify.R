@@ -21,21 +21,12 @@ na_value_to_level <- function(df, colnames) {
 }
 
 
-#' Calculate weight adjustment factors so that the proportion of each strata in `df` matches the proportion in `df_target`
-#'
-#' @param df data frame for which to calculate the adjustment factors
-#' @param df_target data frame that serves as the target or baseline
-#' @param factors factor variables on which to poststratify
-#' @param weights column name of a column that contains observation weights
-#'
-#' @export
-poststrata <- function(df, df_target, factors, weights = NULL) {
+stratify <- function(df, factors, weights = NULL) {
   # Note that even though we are only computing adjustment factors that are supposed to be applied
   # to pre-existing weights, we must still know about those weights and cannot simply rely on
   # the unweighted `n` of observations. For example, if a country has, by proportion, twice as many
   # first-generation immigrants as the target country, but also happens to undersample them by a factor
   # of two relative to the target, the unweighted adjustment factor would be 1, when it ought to be 0.5.
-
   if (is.null(weights)) {
     count_wt <- count
   } else {
@@ -45,27 +36,38 @@ poststrata <- function(df, df_target, factors, weights = NULL) {
   df <- df |>
     as_factors(factors) |>
     na_value_to_level(factors)
-  df_target <- df_target |>
-    as_factors(factors) |>
-    na_value_to_level(factors)
 
   total <- count_wt(df)
   counts <- df |> count_wt(across({{ factors }}))
   counts$p <- counts$n / total$n
 
-  target_total <- count_wt(df_target)
-  target_counts <- df_target |> count_wt(across({{ factors }}))
-  target_counts$p_target <- target_counts$n / target_total$n
+  counts
+}
 
-  counts <- left_join(counts, target_counts[, c(factors, "p_target")], by = factors)
+#' Calculate weight adjustment factors so that the proportion of each strata in `df` matches the proportion in `df_target`
+#'
+#' @param df data frame for which to calculate the adjustment factors
+#' @param df_target data frame that serves as the target or baseline
+#' @param factors factor variables on which to poststratify
+#' @param weights column name of a column that contains observation weights
+#'
+#' @export
+poststrata <- function(df, df_target, factors, weights = NULL) {
+  # TODO: consider renaming this function to `compare_strata` or `adjust_strata`
+  # or `match_strata` or `contrast_strata` etc. etc. and talk of p1 and p2
+  # instead of p and p_target
+  source <- stratify(df, factors, weights) |> rename(n1 = 'n', p1 = 'p')
+  target <- stratify(df_target, factors, weights) |> rename(n2 = 'n', p2 = 'p')
+  counts <- left_join(source, target, by = factors)
 
   # let's drop NA cells for now; in the future perhaps raise a warning
   # (this should not happen due to actual missing values, which should get their own cell,
   # but it can happen when there are fewer factor levels for the reference block than for
   # other blocks, e.g. a <NA> or other level in df but not df_target)
   counts <- drop_na(counts)
+
   # we can't reweight that which does not exist (avoid infinite weights)
-  counts$w <- if_else(counts$n == 0.0, 0.0, counts$p_target / counts$p)
+  counts$w <- if_else(counts$n1 == 0.0, 0.0, counts$p2 / counts$p1)
 
   counts
 }
@@ -84,7 +86,7 @@ clip_strata <- function(strata, upper = 5) {
   # observations rather than the weight adjustment factors in the strata,
   # but that is not covered by this function)
 
-  n <- strata$n
+  n <- strata$n1
   w <- strata$w
   # adjust upper to account for renormalization
   total <- sum(n * w)
@@ -103,7 +105,7 @@ clip_strata <- function(strata, upper = 5) {
 #'
 #' @export
 drop_na_strata <- function(strata) {
-  n <- strata$n
+  n <- strata$n1
   w <- strata$w
   # clean
   factors <- strata |> select(where(is.factor))
@@ -229,7 +231,7 @@ collapse_strata <- function(strata, n_min = 10, strategy = "distance") {
   # remains available after merging strata)
   strata$index <- 1:nrow(strata)
   strata$label <- as.character(strata$index)
-  strata$m <- strata$n
+  strata$m <- strata$n1
   strata$pm <- 1.0
 
   # the distance between two cells is the amount of factors
@@ -313,13 +315,17 @@ collapse_strata <- function(strata, n_min = 10, strategy = "distance") {
       first()
 
     m_merged <- left$m + right$m
-    w_merged <- (left$w * left$m + right$w * right$m) / m_merged
+    print(c(m_merged, left$label, right$label))
+    # we can't reweight that which does not exist (avoid infinite weights)
+    w_merged <- if_else(m_merged == 0.0, 0.0, (left$w * left$m + right$w * right$m) / m_merged)
 
     labels <- c(left$label, right$label)
     ixs <- strata$label %in% labels
     strata[ixs, "m"] <- m_merged
     strata[ixs, "w"] <- w_merged
-    strata[ixs, "pm"] <- strata[ixs, "n"] / strata[ixs, "m"]
+    if (m_merged != 0) {
+      strata[ixs, "pm"] <- strata[ixs, "n1"] / strata[ixs, "m"]
+    }
 
     # by updating the label to account for the merge, we make sure that any
     # subsequent merges involve all rows involved in earlier merges
