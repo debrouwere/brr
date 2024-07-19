@@ -315,7 +315,6 @@ collapse_strata <- function(strata, n_min = 10, strategy = "distance") {
       first()
 
     m_merged <- left$m + right$m
-    print(c(m_merged, left$label, right$label))
     # we can't reweight that which does not exist (avoid infinite weights)
     w_merged <- if_else(m_merged == 0.0, 0.0, (left$w * left$m + right$w * right$m) / m_merged)
 
