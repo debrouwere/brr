@@ -2,6 +2,7 @@ library("tidyverse")
 library("tidyselect")
 library("rlang")
 library("broom")
+library("broom.mixed")
 library("cli")
 
 is_tidy <- function(data) {
