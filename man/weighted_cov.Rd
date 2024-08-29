@@ -2,19 +2,21 @@
 % Please edit documentation in R/weighted.R
 \name{weighted_cov}
 \alias{weighted_cov}
-\title{Weighted covariance matrix}
+\title{Weighted covariance}
 \usage{
-weighted_cov(data, weights, center = TRUE, method = "unbiased")
+weighted_cov(x, y, weights, na_rm = FALSE, scale = FALSE)
 }
 \arguments{
-\item{data}{data}
+\item{x}{a numeric vector, matrix or data frame}
 
-\item{weights}{a non-negative and non-zero vector of weights for each observation. Its length must equal the number of rows of x}
+\item{y}{a numeric vector, matrix or data frame}
 
-\item{center}{either a logical or a numeric vector specifying the centers to be used when computing covariances}
+\item{weights}{a vector of weights for each observation}
 
-\item{method}{string specifying how the result is scaled, \code{unbiased} or \code{ML}}
+\item{na_rm}{remove observations for which one or both variables are NA}
+
+\item{scale}{calculate a correlation instead}
 }
 \description{
-Weighted covariance matrix
+Weighted covariance
 }

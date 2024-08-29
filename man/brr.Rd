@@ -11,27 +11,25 @@ brr(
   final_weights,
   replicate_weights,
   r = 80,
+  .by = "",
   .progress = TRUE,
-  .select = "tidy",
   ...
 )
 }
 \arguments{
-\item{formula}{formula}
+\item{formula}{a formula or a vector of outcomes}
 
 \item{statistic}{statistical function or fitter with signature \code{fitter(data, weights, ...)}}
 
 \item{data}{data}
 
-\item{final_weights}{depending on \code{.select} either a tidy selection (the default);
-a vector of column names; or a vector, one-column data frame or one-column tibble}
+\item{final_weights}{a tidy selection or a vector of column names}
 
-\item{replicate_weights}{depending on \code{.select} either a tidy selection (the default);
-a vector of column names; or a data frame or tibble}
+\item{replicate_weights}{a tidy selection or a vector of column names}
+
+\item{.by}{group observations with \code{.by} when working with long format data where every plausible value has its own row; allows analysis of multiple imputations of the predictors without a performance hit}
 
 \item{.progress}{show a progress bar}
-
-\item{.select}{select weights from \code{data} using selection helpers such as \code{starts_with}, \code{matches} etc. from the tidyselect package (tidy); using column names (names); or by passing the data itself (noop)}
 
 \item{...}{}
 
