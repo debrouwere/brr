@@ -367,7 +367,7 @@ weighted_reliability_to_variance <- function(x, weights, r, ...) {
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cov <- function(data, weights, center = TRUE, method = "unbiased") {
+weighted_cov_matrix <- function(data, weights, center = TRUE, method = "unbiased") {
   cov.wt(data, wt = weights, center = center, method = method)$cov
 }
 
@@ -379,6 +379,35 @@ weighted_cov <- function(data, weights, center = TRUE, method = "unbiased") {
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cor <- function(data, weights, center = TRUE, method = "unbiased") {
+weighted_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased") {
   cov.wt(data, wt = weights, cor = TRUE, center = center, method = method)$cor
+}
+
+#' Weighted covariance
+#'
+#' @param x a numeric vector, matrix or data frame
+#' @param y a numeric vector, matrix or data frame
+#' @param weights a vector of weights for each observation
+#' @param na_rm remove observations for which one or both variables are NA
+#' @param scale calculate a correlation instead
+#'
+#' @export
+weighted_cov <- function(x, y, weights, na_rm = FALSE, scale = FALSE) {
+  data <- tibble(x = x, y = y, .weights = weights)
+  if (na_rm) data <- drop_na(data)
+  xy <- select(data, -.weights)
+  w <- pull(data, .weights)
+  weighted_cor_matrix(xy, weights = w)[1,2]
+}
+
+#' Weighted correlation
+#'
+#' @param x a numeric vector, matrix or data frame
+#' @param y a numeric vector, matrix or data frame
+#' @param weights a vector of weights for each observation
+#' @param na_rm remove observations for which one or both variables are NA
+#'
+#' @export
+weighted_cor <- function(x, y, weights, na_rm = FALSE) {
+  weighted_cov(x, y, weights, na_rm)
 }
