@@ -48,6 +48,60 @@ confint(fits, extra=TRUE)
 We use `broom::tidy` to extract standardized output from various kinds of
 statistical model.
 
+#### Usage with long format imputed data (beta)
+
+The function `brrl` allows for zero-overhead analysis of long format PISA data
+in which not only the plausible values are imputed but also the covariates.
+
+```r
+fits <- brrl(
+  statistic = \(data, weights) lm(math ~ as.factor(cycle), data = data, weights = weights),
+  data = assessments_long,
+  weights = wts,
+  conditions = list(
+    i = 1:10,
+    weights = c('w_math_student_final', 'w_math_student_r{1:80}')
+  )
+)
+
+coef(fits)
+confint(fits, na_rm = TRUE)
+```
+
+Because `weights` are shared by all imputations, they are typically provided
+by a data frame with 1/5th or 1/10th the amount of rows as the `data` set.
+
+See `pisa.rx.parquet` for a multiply imputed dataset that is compatible with
+`brrl`, or alternatively you can prepare such a dataset yourself using
+`dplyr::pivot_longer` and `mice::mice`.
+
+```r
+# this is just a sketch, actual conversion into long form may be more involved
+# depending on the exact dataset under consideration
+outcomes <- assessments |> 
+    select(starts_with('pv')) |> 
+    pivot_longer(
+      cols = everything(), 
+      names_pattern = 'pv(\\d+)(math)', 
+      names_to = c('i', '.value')
+    )
+
+imputations <- assessments |> 
+  select(c(escs, fathers_isced, mothers_isced)) |> 
+  mice(m = 5) |> 
+  complete(action = "long")
+
+data <- bind_cols(outcomes, imputations)
+
+weights <- assessments |> 
+  select(starts_with('w_'))
+```
+
+In the future, `brrl` will likely become the default analysis interface and the `brr` function
+will be deprecated. When `brrl` detects wide format PISA data, it will pivot it
+to long format, and therefore it will remain possible to work with the original PISA data 
+as provided by the OECD.
+
 ### Poststratification
 
 This package also implements a poststratification routine similar to the one
