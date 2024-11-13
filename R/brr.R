@@ -30,14 +30,12 @@ as_tidy <- function(object) {
 #' @param final_weights a tidy selection or a vector of column names
 #' @param replicate_weights a tidy selection or a vector of column names
 #' @param replications number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
-#' @param .by group observations with `.by` when working with long format data where every plausible value has its own row; allows analysis of multiple imputations of the predictors without a performance hit
 #' @param .progress show a progress bar
 #' @param ...
 #'
 #' @export
-brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .by = "", .progress = TRUE, ...) {
+brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .progress = TRUE, ...) {
   is_marginal <- !rlang::is_formula(formula)
-  is_long_format <- str_length(.by) > 0
 
   # fast path for simple aggregates of the entire dataset
   if (is_marginal) {
@@ -60,11 +58,7 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
 
   # harmonization of wide and long format for plausible values
   # FIXME: \d+ is too brittle, would also match pv1read1, st01q01 etc.
-  imputations <- if (is_long_format) {
-    unique(data[[.by]])
-  } else {
-    as.integer(str_extract(unique(outcomes), "\\d+"))
-  }
+  imputations <- as.integer(str_extract(unique(outcomes), "\\d+"))
 
   conditions <- tibble(outcome = outcomes, imputation = imputations) |>
     expand_grid(weights = colnames(weights))
@@ -86,17 +80,13 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
 
   # TODO: can we support long and wide format without having these parallel code
   # paths all over the place? Convert internally or something like that?
+  #
+  # I'm also wondering whether `x` and `w`, although convenient, don't lead
+  # to an unnecessary data copy?
   replicate <- if (is_marginal) {
     function(condition) {
       x <- data |> pull(condition$outcome)
       w <- weights |> pull(condition$weights)
-
-      if (is_long_format) {
-        ixs <- data[[.by]] == condition$imputation
-        x <- x |> keep_at(ixs)
-        w <- w |> keep_at(ixs)
-      }
-
       statistic(x = x, weights = w, ...)
     }
   } else {
@@ -104,13 +94,6 @@ brr <- function(formula, statistic, data, final_weights, replicate_weights, r = 
       f <- as.formula(condition$formula)
       x <- data
       w <- label_vector(weights[[condition$weights]], condition$weights)
-
-      if (is_long_format) {
-        ixs <- data[[.by]] == condition$imputation
-        x <- x |> keep_at(ixs)
-        w <- w |> keep_at(ixs)
-      }
-
       statistic(formula = f, data = x, weights = w, ...)
     }
   }
