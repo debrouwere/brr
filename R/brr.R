@@ -29,7 +29,7 @@ as_tidy <- function(object) {
 #' @param data data
 #' @param final_weights a tidy selection or a vector of column names
 #' @param replicate_weights a tidy selection or a vector of column names
-#' @param replications number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
+#' @param r number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
 #' @param .progress show a progress bar
 #' @param ...
 #'

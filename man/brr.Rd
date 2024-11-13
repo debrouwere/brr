@@ -11,7 +11,6 @@ brr(
   final_weights,
   replicate_weights,
   r = 80,
-  .by = "",
   .progress = TRUE,
   ...
 )
@@ -27,13 +26,11 @@ brr(
 
 \item{replicate_weights}{a tidy selection or a vector of column names}
 
-\item{.by}{group observations with \code{.by} when working with long format data where every plausible value has its own row; allows analysis of multiple imputations of the predictors without a performance hit}
+\item{r}{number of replications to perform (for convenience, you can also just pass fewer columns to \code{replicate_weights})}
 
 \item{.progress}{show a progress bar}
 
 \item{...}{}
-
-\item{replications}{number of replications to perform (for convenience, you can also just pass fewer columns to \code{replicate_weights})}
 }
 \description{
 Balanced repeated replications
