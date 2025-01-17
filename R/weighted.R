@@ -367,7 +367,12 @@ weighted_reliability_to_variance <- function(x, weights, r, ...) {
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cov_matrix <- function(data, weights, center = TRUE, method = "unbiased") {
+weighted_cov_matrix <- function(data, weights, center = TRUE, method = "unbiased", na_rm = FALSE) {
+  if (na_rm) {
+    mask <- vctrs::vec_detect_complete(data)
+    data <- data[mask, ]
+    weights <- weights[mask]
+  }
   cov.wt(data, wt = weights, center = center, method = method)$cov
 }
 
@@ -379,8 +384,46 @@ weighted_cov_matrix <- function(data, weights, center = TRUE, method = "unbiased
 #' @param method string specifying how the result is scaled, `unbiased` or `ML`
 #'
 #' @export
-weighted_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased") {
+weighted_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased", na_rm = FALSE) {
+  if (na_rm) {
+    mask <- vctrs::vec_detect_complete(data)
+    data <- data[mask, ]
+    weights <- weights[mask]
+  }
   cov.wt(data, wt = weights, cor = TRUE, center = center, method = method)$cor
+}
+
+# `ginv` and `marginal_to_partial` are inspired by code in William Revelle's `psych package`
+ginv <- function(x, tol = sqrt(.Machine$double.eps)) {
+  decomposition <- svd(x)
+  d <- decomposition$d
+  u <- decomposition$u
+  v <- decomposition$v
+  nonzero <- d > max(tol * decomposition$d[1], 0)
+  v[, nonzero, drop = FALSE] %*% (1 / d[nonzero] * t(u[, nonzero, drop = FALSE]))
+}
+
+marginal_to_partial <- function(x) {
+  inverse <- ginv(x)
+  smc <- 1 - 1 / diag(inverse)
+  residual <- -inverse
+  diag(residual) <- 1 / (1 - smc)
+  residual <- cov2cor(residual)
+  rownames(residual) <- colnames(residual) <- colnames(x)
+  residual
+}
+
+# `na_rm` is equivalent to `cor(use = "complete.obs")`
+# (pairwise complete etc. doesn't make sense for a partial correlation matrix)
+partial_cor_matrix <- function(data, center = TRUE, method = "unbiased", na_rm = FALSE) {
+  weights <- rep(1, nrow(data))
+  m <- weighted_cor_matrix(data, weights = weights, center = center, method = method, na_rm = na_rm)
+  marginal_to_partial(m)
+}
+
+weighted_partial_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased", na_rm = FALSE) {
+  m <- weighted_cor_matrix(data, weights = weights, center = center, method = method, na_rm = na_rm)
+  marginal_to_partial(m)
 }
 
 #' Weighted covariance
@@ -388,7 +431,7 @@ weighted_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased
 #' @param x a numeric vector, matrix or data frame
 #' @param y a numeric vector, matrix or data frame
 #' @param weights a vector of weights for each observation
-#' @param na_rm remove observations for which one or both variables are NA
+#' @param na_rm remove observations for which either the weight or one or both variables are NA
 #' @param scale calculate a correlation instead
 #'
 #' @export
@@ -397,7 +440,7 @@ weighted_cov <- function(x, y, weights, na_rm = FALSE, scale = FALSE) {
   if (na_rm) data <- drop_na(data)
   xy <- select(data, -.weights)
   w <- pull(data, .weights)
-  weighted_cor_matrix(xy, weights = w)[1,2]
+  weighted_cov_matrix(xy, weights = w)[1,2]
 }
 
 #' Weighted correlation
@@ -405,9 +448,13 @@ weighted_cov <- function(x, y, weights, na_rm = FALSE, scale = FALSE) {
 #' @param x a numeric vector, matrix or data frame
 #' @param y a numeric vector, matrix or data frame
 #' @param weights a vector of weights for each observation
-#' @param na_rm remove observations for which one or both variables are NA
+#' @param na_rm remove observations for which either the weight or one or both variables are NA
 #'
 #' @export
 weighted_cor <- function(x, y, weights, na_rm = FALSE) {
-  weighted_cov(x, y, weights, na_rm)
+  data <- tibble(x = x, y = y, .weights = weights)
+  if (na_rm) data <- drop_na(data)
+  xy <- select(data, -.weights)
+  w <- pull(data, .weights)
+  weighted_cor_matrix(xy, weights = w)[1,2]
 }
