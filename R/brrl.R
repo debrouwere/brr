@@ -44,7 +44,7 @@ pivot_brr <- function(data, outcomes) {
 brrl <- function(statistic, data, weights, conditions, i = NULL, r = NULL, .progress = TRUE, .verbose = TRUE) {
   conditions <- list_glue(conditions)
 
-  r <- if (!is.null(r)) { r } else { length(conditions$weights) }
+  r <- if (!is.null(r)) { r } else { length(conditions$weights) - 1 }
   weight_cols <- head(conditions$weights, n = r + 1)
   final_weight_cols <- weight_cols[1]
   replicate_weight_cols <- weight_cols[-1]
