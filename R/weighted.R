@@ -123,13 +123,13 @@ tidy.aggregate <- function(results, index = 1) {
 #' @param na_rm remove NA values
 weighted_var <- function(x, weights, na_rm = FALSE) {
   if (na_rm) {
-    w <- w[i <- !is.na(x)]
+    weights <- weights[i <- !is.na(x)]
     x <- x[i]
   }
-  sum.w <- sum(w)
-  sum.w2 <- sum(w^2)
-  mean.w <- sum(x * w) / sum(w)
-  (sum.w / (sum.w^2 - sum.w2)) * sum(w * (x - mean.w)^2, na.rm = na_rm)
+  sum.w <- sum(weights)
+  sum.w2 <- sum(weights^2)
+  mean.w <- sum(x * weights) / sum.w
+  (sum.w / (sum.w^2 - sum.w2)) * sum(weights * (x - mean.w)^2)
 }
 
 #' Weighted standard deviation
