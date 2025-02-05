@@ -17,6 +17,13 @@ pivot_brr <- function(data, outcomes) {
   )
 }
 
+#' Indicate that a data frame contains balanced repeated replications
+#'
+#' @param x a data frame or tibble with fits, as produced by `brr::brr`
+new_brr <- function(fits) {
+  structure(fits, class = c("brr", "tbl_df", "tbl", "data.frame"))
+}
+
 #' Balanced repeated replications
 #'
 #' @description
@@ -88,12 +95,5 @@ brrl <- function(statistic, data, weights, conditions, i = NULL, r = NULL, .prog
 
   if (.progress) cli::cli_progress_done()
 
-  # t0: W_FSTUWT are the final weights, used to compute point estimates and imputation variance
-  #     (imputation variance arises due to matrix sampling)
-  # t:  W_FSTR* are the replicate weights, used to compute the estimation variance
-  #     (the estimates themselves are then discarded)
-  structure(list(
-    t0 = replications |> filter(weights == 1),
-    t  = replications |> filter(weights > 1)
-  ), class = "brr")
+  new_brr(replications)
 }

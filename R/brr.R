@@ -22,6 +22,15 @@ as_tidy <- function(object) {
   }
 }
 
+#' Indicate that a data frame contains balanced repeated replications
+#'
+#' @param x a data frame or tibble with fits, as produced by `brr::brr`
+#'
+#' @export
+new_brr <- function(fits) {
+  structure(fits, class = c("brr", "tbl_df", "tbl", "data.frame"))
+}
+
 #' Balanced repeated replications
 #'
 #' @param formula a formula or a vector of outcomes
@@ -118,10 +127,22 @@ brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weigh
   #     (imputation variance arises due to matrix sampling)
   # t:  W_FSTR* are the replicate weights, used to compute the estimation variance
   #     (the estimates themselves are then discarded)
-  structure(list(
-    t0 = replications |> filter(is_final),
-    t  = replications |> filter(!is_final)
-  ), class = "brr")
+  new_brr(replications)
+}
+
+# originally, `brr` split up the replications into a tibble with the final weights
+# and a tibble with all other weights, but actually `brr` doesn't care which weight
+# is final and which one isn't, so we can kick the can down the road and only
+# make the split as part of `brr_var`, `brr.coef` and `brr.confint` -- this has
+# the disadvantage that we may need to split in multiple functions, but it keeps
+# `brr` and `brrl` simple and makes it easy to persist fits to disk in a tabular
+# format
+brr_split <- function(fits, final = 1) {
+  fits |> group_split(weights == {{ final }}, .keep = FALSE) |> set_names(c("t", "t0"))
+}
+
+brr_final <- function(fits, final = 1) {
+  fits |> filter(weights == {{ final }})
 }
 
 #' Diagnose common problems with BRR replications
@@ -130,6 +151,8 @@ brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weigh
 #'
 #' @export
 brr_diagnose <- function(replications) {
+  replications <- brr_split(replications)
+
   na_outcomes <- c()
   na_weights <- c()
   map(replications$t, function(tx) {
@@ -156,10 +179,10 @@ brr_diagnose <- function(replications) {
 #'
 #' @export
 coef.brr <- function(replications, na_rm = FALSE, simplify = TRUE) {
-  if (na_rm) {
-    results <- replications$t0 |> drop_na(estimate)
+  results <- if (na_rm) {
+    brr_final(replications) |> drop_na(estimate)
   } else {
-    results <- replications$t0
+    brr_final(replications)
   }
 
   coefs <- results |>
@@ -215,14 +238,14 @@ brr_n <- function(t, perturbation = 0.50) {
 #' @return A list of mean and variance component vectors.
 #' @export
 brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm = FALSE) {
-  if (na_rm) {
-    t0 <- replications$t0 |> drop_na(estimate)
-    t <- replications$t |> drop_na(estimate)
+  replications <- if (na_rm) {
+    replications |> drop_na(estimate) |> brr_split()
   } else {
-    t0 <- replications$t0
-    t <- replications$t
+    replications |> brr_split()
   }
 
+  t0 <- replications$t0
+  t <- replications$t
   n <- brr_n(t, perturbation)
 
   # means by plausible value
