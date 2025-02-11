@@ -4,7 +4,13 @@
 \alias{weighted_cov_matrix}
 \title{Weighted covariance matrix}
 \usage{
-weighted_cov_matrix(data, weights, center = TRUE, method = "unbiased")
+weighted_cov_matrix(
+  data,
+  weights,
+  center = TRUE,
+  method = "unbiased",
+  na_rm = FALSE
+)
 }
 \arguments{
 \item{data}{data}

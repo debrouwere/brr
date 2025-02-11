@@ -4,7 +4,13 @@
 \alias{weighted_cor_matrix}
 \title{Weighted correlation matrix}
 \usage{
-weighted_cor_matrix(data, weights, center = TRUE, method = "unbiased")
+weighted_cor_matrix(
+  data,
+  weights,
+  center = TRUE,
+  method = "unbiased",
+  na_rm = FALSE
+)
 }
 \arguments{
 \item{data}{data}

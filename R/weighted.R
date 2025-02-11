@@ -393,7 +393,14 @@ weighted_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased
   cov.wt(data, wt = weights, cor = TRUE, center = center, method = method)$cor
 }
 
-# `ginv` and `marginal_to_partial` are inspired by code in William Revelle's `psych package`
+#' Generalized (Pseudo-)Inverse
+#'
+#' @description `ginv` is inspired by code in William Revelle's `psych package`
+#'
+#' @param x matrix
+#' @param tol tolerance
+#'
+#' @export
 ginv <- function(x, tol = sqrt(.Machine$double.eps)) {
   decomposition <- svd(x)
   d <- decomposition$d
@@ -403,6 +410,13 @@ ginv <- function(x, tol = sqrt(.Machine$double.eps)) {
   v[, nonzero, drop = FALSE] %*% (1 / d[nonzero] * t(u[, nonzero, drop = FALSE]))
 }
 
+#' Obtain partial correlations from a correlation matrix
+#'
+#' @description `marginal_to_partial` is inspired by code in William Revelle's `psych package`
+#'
+#' @param x matrix
+#'
+#' @export
 marginal_to_partial <- function(x) {
   inverse <- ginv(x)
   smc <- 1 - 1 / diag(inverse)
@@ -413,14 +427,29 @@ marginal_to_partial <- function(x) {
   residual
 }
 
-# `na_rm` is equivalent to `cor(use = "complete.obs")`
-# (pairwise complete etc. doesn't make sense for a partial correlation matrix)
+#' Partial correlation matrix
+#'
+#' @param data matrix
+#' @param center center
+#' @param method method
+#' @param na_rm na_rm, equivalent to `cor(use = "complete.obs")`, as pairwise complete etc. does not make sense for partial correlations
+#'
+#' @export
 partial_cor_matrix <- function(data, center = TRUE, method = "unbiased", na_rm = FALSE) {
   weights <- rep(1, nrow(data))
   m <- weighted_cor_matrix(data, weights = weights, center = center, method = method, na_rm = na_rm)
   marginal_to_partial(m)
 }
 
+#' Weighted partial correlation matrix
+#'
+#' @param data matrix
+#' @param weights weights
+#' @param center center
+#' @param method method
+#' @param na_rm na_rm, equivalent to `cor(use = "complete.obs")`, as pairwise complete etc. does not make sense for partial correlations
+#'
+#' @export
 weighted_partial_cor_matrix <- function(data, weights, center = TRUE, method = "unbiased", na_rm = FALSE) {
   m <- weighted_cor_matrix(data, weights = weights, center = center, method = method, na_rm = na_rm)
   marginal_to_partial(m)

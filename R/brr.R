@@ -28,7 +28,9 @@ as_tidy <- function(object) {
 #'
 #' @export
 new_brr <- function(fits) {
-  structure(fits, class = c("brr", "tbl_df", "tbl", "data.frame"))
+  fits |>
+    select(imputation, weights, term, estimate) |>
+    structure(class = c("brr", "tbl_df", "tbl", "data.frame"))
 }
 
 #' Balanced repeated replications

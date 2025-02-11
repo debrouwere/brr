@@ -13,7 +13,7 @@ weighted_cor(x, y, weights, na_rm = FALSE)
 
 \item{weights}{a vector of weights for each observation}
 
-\item{na_rm}{remove observations for which one or both variables are NA}
+\item{na_rm}{remove observations for which either the weight or one or both variables are NA}
 }
 \description{
 Weighted correlation
