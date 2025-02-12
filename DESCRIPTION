@@ -1,6 +1,6 @@
 Package: brr
 Title: Tools for the analysis of data from the Programme for International Student Assessment (PISA) using balanced repeated replication
-Version: 0.5.0
+Version: 0.6.0
 Authors@R: 
     person("Stijn", "Debrouwere", , "stijn.debrouwere@ugent.be", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-0569-5289"))
