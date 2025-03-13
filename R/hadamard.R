@@ -35,7 +35,7 @@ sylvester_matrix <- function(order) {
   } else if (k == 1) {
     matrix(c(1, 1, 1, -1), nrow = 2, ncol = 2)
   } else if (k > 1) {
-    kronecker(sylvester(2), sylvester(2^(k - 1)))
+    kronecker(sylvester_matrix(2), sylvester_matrix(2^(k - 1)))
   }
 }
 
@@ -47,7 +47,7 @@ quadratic_residues <- function(p) {
 }
 
 paley_prime_matrix <- function(p) {
-  q <- quadratic_residues_gfp(p)
+  q <- quadratic_residues(p)
   upper_ixs <- seq(1, (p - 1) / 2)
   ixs <- list(rep(1:p, times = p), rep(1:p, each = p))
 
@@ -157,4 +157,35 @@ fay_matrix <- function(ncol = 80, nrow = ncol, scale = 0.5, location = 1, weight
   } else {
     weights * block
   }
+}
+
+#' Balanced repeated replication weight matrix with Fay's correction
+#'
+#' @param ncol order of the matrix
+#' @param nrow length of the matrix
+#' @param ncol width of the matrix
+#' @param scale scale by which to multiply the original entries (-1 and 1)
+#' @param location location by which to shift the scaled entries
+#' @param weights sampling weights or a single weight to further adjust the weights of each row
+#' @param prefix
+#'
+#' @description
+#' This replication weight matrix generalizes the Hadamard matrix with arbitrary
+#' weights (or weight adjustment factors) instead of -1 and 1. The default
+#' scale and location parameters produce weights of 0.5 and 1.5, as with Fay's
+#' method.
+#'
+#' Using the `weights` argument,these replications weights can then further be
+#' multiplied with the sampling weights so they can be used in a balanced
+#' repeated replication.
+#'
+#' If `nrow` is different from `ncol`, or if sampling weights are provided,
+#' the matrix will be repeated or abbreviated to attain the desired amount of
+#' rows.
+#'
+#' @export
+fay_tibble <- function(ncol = 80, nrow = ncol, scale = 0.5, location = 1, weights = 1, prefix = "w_student_r") {
+  mat <- fay_matrix(ncol, nrow, scale, location, weights)
+  colnames(mat) <- str_glue("{prefix}{1:ncol}")
+  as_tibble(mat)
 }
