@@ -4,19 +4,6 @@ list_glue <- function(l) {
   map_if(l, is_character, \(v) as.character(list_c(map(v, str_glue))))
 }
 
-expand_brr <- function(conditions) {
-  glued <- list_glue(conditions)
-  expand_grid(!!!glued)
-}
-
-pivot_brr <- function(data, outcomes) {
-  data |> pivot_longer(
-    all_of(outcomes),
-    names_to = 'i',
-    values_to = common_suffix(outcomes)
-  )
-}
-
 #' Indicate that a data frame contains balanced repeated replications
 #'
 #' @param x a data frame or tibble with fits, as produced by `brr::brr`
@@ -31,44 +18,30 @@ new_brr <- function(fits) {
 #' without performance overhead relative to the analysis of a single imputation
 #' as with the original `brr` function.
 #'
-#' Because `weights` are shared by all imputations, they are typically provided
-#' by a data frame with 1/5th or 1/10th the amount of rows as the `data` set.
-#'
 #' See `pisa.rx.parquet` for a multiply imputed dataset that is compatible with
 #' `brrl`, or alternatively use `pivot_longer(..., names_pattern = 'pv(\\d+)(math)', names_to = c('i', '.value'))`
 #' on a wide format PISA dataset and merge these plausible values with imputations
 #' such as those generated with `mice`.
 #'
 #' @param statistic statistical function or fitter with signature `fitter(data, weights)`
-#' @param data plausible values and covariates in long format, one imputation per row
-#' @param weights weights shared by all imputations, of which the first weight will be used as final weight
+#' @param data plausible values, covariates and weights in long format, one imputation per row
+#' @param conditions the replicates to be analyzed, e.g. `list(i = 1:5, weights = c("w_student_final", "w_student_r1")`
 #' @param i number of imputations to to analyze, if only a subset of `data` should be used
 #' @param r number of replications to perform, if only a subset of `weights` should be used
 #' @param .progress show a progress bar
 #' @param ...
 #'
 #' @export
-brrl <- function(statistic, data, weights, conditions, i = NULL, r = NULL, .progress = TRUE, .verbose = TRUE) {
+brrl <- function(statistic, data, conditions, i = NULL, r = NULL, .progress = TRUE, .verbose = TRUE) {
   conditions <- list_glue(conditions)
 
   r <- if (!is.null(r)) { r } else { length(conditions$weights) - 1 }
   weight_cols <- head(conditions$weights, n = r + 1)
   final_weight_cols <- weight_cols[1]
   replicate_weight_cols <- weight_cols[-1]
+
   w <- length(weight_cols)
-
-  m <- if (!is.null(i)) {
-    i
-  } else if (!is.null(conditions$outcome)) {
-    length(conditions$outcome)
-  } else {
-    length(conditions$i)
-  }
-
-  if (!is.null(conditions$outcome)) {
-    data <- pivot_brr(data, conditions$outcome)
-  }
-
+  m <- if (!is.null(i)) { i } else { length(conditions$i) }
   s <- m * w
 
   if (.progress) {
@@ -82,7 +55,8 @@ brrl <- function(statistic, data, weights, conditions, i = NULL, r = NULL, .prog
 
   replicate <- function(ixs, ...) {
     list_rbind(map(weight_cols, function(weight_col) {
-      tidy_statistic(data = slice(data, ixs), weights = weights[[weight_col]])
+      imputation <- slice(data, ixs)
+      tidy_statistic(data = imputation, weights = imputation[[weight_col]])
     }), names_to = 'weights')
   }
 

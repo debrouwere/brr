@@ -7,7 +7,6 @@
 brrl(
   statistic,
   data,
-  weights,
   conditions,
   i = NULL,
   r = NULL,
@@ -18,9 +17,9 @@ brrl(
 \arguments{
 \item{statistic}{statistical function or fitter with signature \code{fitter(data, weights)}}
 
-\item{data}{plausible values and covariates in long format, one imputation per row}
+\item{data}{plausible values, covariates and weights in long format, one imputation per row}
 
-\item{weights}{weights shared by all imputations, of which the first weight will be used as final weight}
+\item{conditions}{the replicates to be analyzed, e.g. \verb{list(i = 1:5, weights = c("w_student_final", "w_student_r1")}}
 
 \item{i}{number of imputations to to analyze, if only a subset of \code{data} should be used}
 
@@ -34,9 +33,6 @@ brrl(
 \code{brrl} allows multiple imputation of covariates (not just plausible values)
 without performance overhead relative to the analysis of a single imputation
 as with the original \code{brr} function.
-
-Because \code{weights} are shared by all imputations, they are typically provided
-by a data frame with 1/5th or 1/10th the amount of rows as the \code{data} set.
 
 See \code{pisa.rx.parquet} for a multiply imputed dataset that is compatible with
 \code{brrl}, or alternatively use \code{pivot_longer(..., names_pattern = 'pv(\\\\d+)(math)', names_to = c('i', '.value'))}
