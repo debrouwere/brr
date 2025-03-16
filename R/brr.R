@@ -140,7 +140,10 @@ brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weigh
 # `brr` and `brrl` simple and makes it easy to persist fits to disk in a tabular
 # format
 brr_split <- function(fits, final = 1) {
-  fits |> group_split(weights == {{ final }}, .keep = FALSE) |> set_names(c("t", "t0"))
+  list(
+    t = fits |> filter(weights == {{ final }}),
+    t0 = fits |> filter(weights != {{ final }})
+  )
 }
 
 brr_final <- function(fits, final = 1) {
