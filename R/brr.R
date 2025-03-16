@@ -191,10 +191,7 @@ coef.brr <- function(replications, na_rm = FALSE, simplify = TRUE) {
   }
 
   coefs <- results |>
-    group_by(term) |>
-    summarize(
-      estimate = mean(estimate, na.rm = na_rm)
-    )
+    summarize(estimate = mean(estimate, na.rm = na_rm), .by = term)
 
   # simplification is the default, to match the format of `brr.lm`
   if (simplify) {
@@ -255,14 +252,11 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
 
   # means by plausible value
   m0 <- t0 |>
-    group_by(term, imputation) |>
-    summarize(mean = mean(estimate)) |>
-    ungroup()
+    summarize(mean = mean(estimate), .by = c(term, imputation))
 
   # final means
   mm0 <- t0 |>
-    group_by(term) |>
-    summarize(mean = mean(estimate))
+    summarize(mean = mean(estimate), .by = term)
 
   t0 <- full_join(t0, mm0, by = c("term")) |>
     mutate(squared_deviation = (estimate - mean)^2)
@@ -271,12 +265,10 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
 
   # FIXME: n$imputations may well be inaccurate if na_rm is selected!
   imputation_variance <- t0 |>
-    group_by(term) |>
-    summarize(imputation = sum(squared_deviation) / (n$imputations - 1))
+    summarize(imputation = sum(squared_deviation) / (n$imputations - 1), .by = term)
 
   estimation_variance <- t |>
-    group_by(term) |>
-    summarize(estimation = mean(squared_deviation) * n$brr_design_effect)
+    summarize(estimation = mean(squared_deviation) * n$brr_design_effect, .by = term)
 
   # note that first we obtain the imputation variance by dividing by n-1,
   # but then here we multiply by n+(1/n), which gets you almost but not
