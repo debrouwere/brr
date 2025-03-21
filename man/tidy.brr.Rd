@@ -4,7 +4,7 @@
 \alias{tidy.brr}
 \title{Tidy a BRR object (experimental)}
 \usage{
-\method{tidy}{brr}(replications, na_rm = FALSE)
+\method{tidy}{brr}(replications)
 }
 \arguments{
 \item{replications}{A brr object, as produced by \code{brr::brr}}

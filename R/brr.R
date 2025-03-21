@@ -1,6 +1,5 @@
-library("tidyverse")
-library("tidyselect")
-library("rlang")
+library("dplyr")
+library("tidyr")
 library("broom")
 library("broom.mixed")
 library("cli")
@@ -33,165 +32,39 @@ new_brr <- function(fits) {
     structure(class = c("brr", "tbl_df", "tbl", "data.frame"))
 }
 
-#' Balanced repeated replications
+#' Indicate that a data frame contains balanced repeated replications
 #'
-#' @param formula a formula or a vector of outcomes
-#' @param statistic statistical function or fitter with signature `fitter(data, weights, ...)`
-#' @param data data
-#' @param final_weights a tidy selection or a vector of column names
-#' @param replicate_weights a tidy selection or a vector of column names
-#' @param r number of replications to perform (for convenience, you can also just pass fewer columns to `replicate_weights`)
-#' @param .progress show a progress bar
-#' @param ...
+#' @description
+#' Alias to `brr::new_brr`
+#'
+#' @param x a data frame or tibble with fits, as produced by `brr::brr`
 #'
 #' @export
-brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weights, r = 80, .progress = TRUE, ...) {
-  is_marginal <- !rlang::is_formula(formula)
-
-  # fast path for simple aggregates of the entire dataset
-  if (is_marginal) {
-    outcomes <- formula
-    predictors <- NA
-  } else {
-    outcomes <- all.vars(rlang::f_lhs(formula))
-    predictors <- rlang::f_text(formula)
-  }
-
-  # TODO: check whether outcomes are present in the dataset
-
-  # select weights from `data` using selection helpers such as `starts_with`,
-  # `matches` etc. from the tidyselect package, using nonstandard evaluation
-  final_weights_quosure <- rlang::enquo(final_weights)
-  final_weights <- data |> select({{ final_weights_quosure }})
-  replicate_weights_quosure <- rlang::enquo(replicate_weights)
-  replicate_weights <- data |> select({{ replicate_weights_quosure }})
-  weights <- bind_cols(final_weights, replicate_weights[, 1:r])
-
-  # harmonization of wide and long format for plausible values
-  # FIXME: \d+ is too brittle, would also match pv1read1, st01q01 etc.
-  imputations <- as.integer(str_extract(unique(outcomes), "\\d+"))
-
-  conditions <- tibble(outcome = outcomes, imputation = imputations) |>
-    expand_grid(weights = colnames(weights))
-  conditions$is_final <- conditions$weights == colnames(final_weights)[1]
-  conditions$formula <- if (!is_marginal) {
-    formulae <- str_c(outcomes, " ~ ", predictors)
-    names(formulae) <- outcomes
-    formulae[conditions$outcome]
-  } else {
-    NA
-  }
-
-  if (.progress) {
-    progressor <- cli::cli_progress_bar("Balanced repeated replication", total = nrow(conditions))
-    tick <- invisibly(\() cli::cli_progress_update(id = progressor))
-  } else {
-    tick <- identity
-  }
-
-  # TODO: can we support long and wide format without having these parallel code
-  # paths all over the place? Convert internally or something like that?
-  #
-  # I'm also wondering whether `x` and `w`, although convenient, don't lead
-  # to an unnecessary data copy?
-  replicate <- if (is_marginal) {
-    function(condition) {
-      x <- data |> pull(condition$outcome)
-      w <- weights |> pull(condition$weights)
-      statistic(x = x, weights = w, ...)
-    }
-  } else {
-    function(condition) {
-      f <- as.formula(condition$formula)
-      x <- data
-      w <- label_vector(weights[[condition$weights]], condition$weights)
-      statistic(formula = f, data = x, weights = w, ...)
-    }
-  }
-
-  replicate_tidily <- compose(tick, as_tidy, replicate)
-
-  replications <- conditions |>
-    rowwise() |>
-    reframe(
-      outcome = outcome,
-      formula = formula,
-      weights = weights,
-      imputation = imputation,
-      is_final = is_final,
-      results = replicate_tidily(.data)
-    ) |>
-    unnest_wider(results)
-
-  if (.progress) cli::cli_progress_done()
-
-  # t0: W_FSTUWT are the final weights, used to compute point estimates and imputation variance
-  #     (imputation variance arises due to matrix sampling)
-  # t:  W_FSTR* are the replicate weights, used to compute the estimation variance
-  #     (the estimates themselves are then discarded)
+as_brr <- function(replications) {
   new_brr(replications)
 }
 
-# originally, `brr` split up the replications into a tibble with the final weights
-# and a tibble with all other weights, but actually `brr` doesn't care which weight
-# is final and which one isn't, so we can kick the can down the road and only
-# make the split as part of `brr_var`, `brr.coef` and `brr.confint` -- this has
-# the disadvantage that we may need to split in multiple functions, but it keeps
-# `brr` and `brrl` simple and makes it easy to persist fits to disk in a tabular
-# format
-brr_split <- function(fits, final = 1) {
-  list(
-    t0 = fits |> filter(weights == {{ final }}),
-    t = fits |> filter(weights != {{ final }})
-  )
-}
-
-brr_final <- function(fits, final = 1) {
-  fits |> filter(weights == {{ final }})
-}
-
-#' Diagnose common problems with BRR replications
+#' Test whether an object is a collection of replications
 #'
-#' @param replications
+#' @param x any object
 #'
 #' @export
-brr_diagnose <- function(replications) {
-  replications <- brr_split(replications)
-
-  na_outcomes <- c()
-  na_weights <- c()
-  map(replications$t, function(tx) {
-    data <- tx |> drop_na()
-    na_outcomes <- setdiff(unique(data$outcome), unique(data$outcome))
-    na_weights <- setdiff(unique(data$weights), unique(data$weights))
-    if (length(na_outcomes)) message("Missing replication outcomes: ", str_flatten_comma(na_outcomes))
-    if (length(na_weights)) message("Missing replication weights: ", str_flatten_comma(na_weights))
-    data
-  })
+is_brr <- function(x) {
+  "brr" %in% class(x)
 }
 
 #' Extract model coefficients from the balanced repeated replications of a model fit
 #'
-#' @description
-#' The `na_rm` argument should be used sparingly because it may hide model or fit errors,
-#' but it can be particularly useful for repeated cross-sectional analyses of PISA data
-#' from 2000-now, allowing you to specify a model with 10 plausible values even though
-#' 2000, 2003, 2006, 2009 and 2012 assessments only include 5.
-#'
 #' @param replications BRR replications
-#' @param na_rm remove replications with NA estimates
+#' @param final_weights the weights index that represents the final weights (usually this is 1)
 #' @param simplify return a named vector instead of `tibble(term, estimate)`
 #'
 #' @export
-coef.brr <- function(replications, na_rm = FALSE, simplify = TRUE) {
-  results <- if (na_rm) {
-    brr_final(replications) |> drop_na(estimate)
-  } else {
-    brr_final(replications)
-  }
+coef.brr <- function(replications, final_weights = 1, simplify = TRUE) {
+  final <- replications |> filter(weights == {{ final_weights }})
 
-  coefs <- results |>
-    summarize(estimate = mean(estimate, na.rm = na_rm), .by = term)
+  coefs <- final |>
+    summarize(estimate = mean(estimate), .by = term)
 
   # simplification is the default, to match the format of `brr.lm`
   if (simplify) {
@@ -210,45 +83,28 @@ coef.brr <- function(replications, na_rm = FALSE, simplify = TRUE) {
 #'
 #' @export
 #' @importFrom generics tidy
-tidy.brr <- function(replications, na_rm = FALSE) {
-  coef.brr(replications, na_rm = na_rm, simplify = FALSE)
-}
-
-brr_n <- function(t, perturbation = 0.50) {
-  n <- list()
-  n$imputations <- length(unique(t$imputation))
-  n$replications <- length(unique(t$weights))
-  # denominator for variance calculations using Fay's method
-  n$effective_replications <- n$replications * (1 - perturbation)^2
-  n$brr_design_effect <- n$replications / n$effective_replications
-  n
+tidy.brr <- function(replications) {
+  coef.brr(replications, simplify = FALSE)
 }
 
 #' Imputation, estimation and total variance of balanced repeated replications
 #'
-#' @description
-#' The `na_rm` argument should be used sparingly because it may hide model or fit errors,
-#' but it can be particularly useful for repeated cross-sectional analyses of PISA data
-#' from 2000-now, allowing you to specify a model with 10 plausible values even though
-#' 2000, 2003, 2006, 2009 and 2012 assessments only include 5.
-#'
 #' @param replications BRR replications
 #' @param perturbation perturbation
-#' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
-#' @param na_rm na_rm
+#' @param final_weights the weights index that represents the final weights (usually this is 1)
 #'
-#' @return A list of mean and variance component vectors.
+#' @return a list of mean and variance component vectors
 #' @export
-brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm = FALSE) {
-  replications <- if (na_rm) {
-    replications |> drop_na(estimate) |> brr_split()
-  } else {
-    replications |> brr_split()
-  }
+VarCorr.brr <- function(replications, perturbation = 0.50, final_weights = 1) {
+  t0 <- replications |> filter(weights == {{ final_weights }})
+  t <- replications |> filter(weights != {{ final_weights }})
 
-  t0 <- replications$t0
-  t <- replications$t
-  n <- brr_n(t, perturbation)
+  # number of imputations, replications, effective replications and the replication design effect
+  # for variance calculations using Fay's method
+  m <- length(unique(t$imputation))
+  w <- length(unique(t$weights))
+  w_eff <- w * (1 - perturbation)^2
+  w_deff <- w / w_eff
 
   # means by plausible value
   m0 <- t0 |>
@@ -263,76 +119,118 @@ brr_var <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm 
   t <- full_join(t, m0, by = c("term", "imputation")) |>
     mutate(squared_deviation = (estimate - mean)^2)
 
-  # FIXME: n$imputations may well be inaccurate if na_rm is selected!
+  # see the technical manual with regards to the factor `1 + (1 / m)`
   imputation_variance <- t0 |>
-    summarize(imputation = sum(squared_deviation) / (n$imputations - 1), .by = term)
+    summarize(imputation = sum(squared_deviation) * (1 + 1 / m) / (m - 1), .by = term)
 
   estimation_variance <- t |>
-    summarize(estimation = mean(squared_deviation) * n$brr_design_effect, .by = term)
+    summarize(estimation = mean(squared_deviation) * w_deff, .by = term)
 
-  # note that first we obtain the imputation variance by dividing by n-1,
-  # but then here we multiply by n+(1/n), which gets you almost but not
-  # quite back to 1; why PISA recommends this approach eludes me but it is
-  # what it says in the technical manual
-  variance <- full_join(imputation_variance, estimation_variance, by = "term")
-  variance$total <- variance$estimation + (1 + 1 / n$imputations) * variance$imputation
-  variance
+  full_join(imputation_variance, estimation_variance, by = "term")
 }
 
-#' Imputation, estimation and total standard deviation of balanced repeated replications
+#' Subtract sets of replications from each other
 #'
-#' @param replications BRR replications
-#' @param perturbation perturbation
-#' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
+#' @param e1 lefthand set of replications
+#' @param e2 righthand set of replications
 #'
-#' @return A list of mean and variance component vectors.
+#' @description Useful to compare scores between countries or between cycles when passed on to
+#'   `confint`
+#'
 #' @export
-brr_sd <- function(replications, perturbation = 0.50, imputation = TRUE, na_rm = FALSE) {
-  s2 <- brr_var(replications, perturbation, imputation, na_rm)
-  s <- s2 |> mutate(across(!term, ~ sqrt(.x)))
-  s
+`-.brr` <- function(e1, e2) {
+  e <- inner_join(e1, e2, by = c("imputation", "weights", "term"))
+  mutate(e, estimate = estimate.x - estimate.y, .keep = "unused")
+}
+
+vc <- function(varcorr_tbl) {
+  select(varcorr_tbl, -term)
+}
+
+interval <- function(estimate, variance, level) {
+  se <- sqrt(variance)
+  critical <- qnorm(1 - (1 - level) / 2)
+  tibble(
+    se = se,
+    lower = estimate - critical * se,
+    upper = estimate + critical * se,
+  )
 }
 
 #' Confidence intervals for model parameters of the balanced repeated model fit replications
 #'
-#' @param replications BRR replications
+#' @param replications one or more sets of BRR replications
 #' @param level the confidence level required
-#' @param perturbation perturbation
-#' @param imputation Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.
-#' @param extra include standard error and variance components in the output
-
+#' @param extra include variance components in the output
+#'
+#' @description If `extra = TRUE`, output includes a confidence interval for each variance
+#'   component. These intervals are cumulative: they include the uncertainty related to all previous
+#'   components as well.
+#'
+#'   If multiple sets of replications are passed to `confint`, confidence intervals for all sets
+#'   except for the first (which acts as the reference) will include the error of both current set
+#'   and reference set. This allows for easy calculation of the confidence intervals for comparisons
+#'   between countries or between cycles.
+#'
+#'   To use this functionality for comparisons between countries within a cycle, the `links`
+#'   argument must be explicitly set to 0. (An alternative would be to subtract the replication
+#'   estimates from one set from the other, which can be done using the arithmetic operator `-`, and
+#'   to ask for a confidence interval for the resulting set using `confint(reps2 - reps1)`. The
+#'   results that this produces are potentially more intuitive.)
+#'
+#'   For comparisons between cycles, the link error for each comparison between the first set and
+#'   subsequent sets must be provided by the user. This information is available as part of the
+#'   official PISA reports.
+#'
 #' @export
-confint.brr <- function(replications, level = 0.95, perturbation = 0.50, imputation = TRUE, extra = FALSE, na_rm = FALSE) {
-  # means <- replications$t0 |> select(where(is.numeric)) |> summarize(across(everything(), mean))
-  variances <- brr_var(replications, perturbation = perturbation, imputation = imputation, na_rm = na_rm)
-  if (imputation) {
-    variance <- variances$total
+confint.brr <- function(replications, links = NA, level = 0.95, extra = FALSE) {
+  if (is_brr(replications)) {
+    k <- 0
+    replications <- list(replications)
   } else {
-    variance <- variance$estimation
+    k <- length(replications)
   }
-  means <- unname(coef.brr(replications, na_rm = na_rm))
-  critical <- qnorm(1 - (1 - level) / 2)
-  margins <- sqrt(variance) * critical
-  names <- variances$term
 
-  base <- tibble(
-    term = names,
-    estimate = means,
-    lower = means - margins,
-    upper = means + margins
-  )
+  # there can be no link error within a single set of replications (unless explicitly demanded)
+  if(is.na(links) & length(replications) == 1) links <- 0.0
 
-  additional <- tibble(
-    imputation_var = variances$imputation,
-    estimation_var = variances$estimation,
-    total_var = variances$total,
-    se = sqrt(variances$total)
-  )
+  if (length(replications) != length(links) & length(links) != 1) {
+    cli_abort("{length(replications)} replications but only {length(links)} links")
+  }
 
-  if (extra) {
-    bind_cols(base, additional)
+  variances <- map(replications, VarCorr)
+  comparisons <- map2(variances, links, function(variance, link) {
+    bind_cols(
+      term = variance$term,
+      vc(variance) + as.integer(link != 0.0) * vc(first(variances)),
+      link = link^2,
+    )
+  })
+  means <- map(replications, \(rr) unname(coef.brr(rr)))
+  margins <- map2(comparisons, means, function(variance, means) {
+    variance |>
+      as_tibble() |>
+      mutate(
+        estimate = means,
+        link = interval(estimate, imputation + estimation + link, level),
+        estimation = interval(estimate, imputation + estimation, level),
+        imputation = interval(estimate, imputation, level)
+      ) |>
+      select(term, estimate, imputation, estimation, link)
+  })
+
+  if (!extra) {
+    margins <- map(margins, function(m) {
+      m |>
+        select(term, estimate, link) |>
+        unnest(link)
+    })
+  }
+
+  if (k == 0) {
+    margins[[1]]
   } else {
-    base
+    margins
   }
 }
 

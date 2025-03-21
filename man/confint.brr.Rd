@@ -4,26 +4,32 @@
 \alias{confint.brr}
 \title{Confidence intervals for model parameters of the balanced repeated model fit replications}
 \usage{
-\method{confint}{brr}(
-  replications,
-  level = 0.95,
-  perturbation = 0.5,
-  imputation = TRUE,
-  extra = FALSE,
-  na_rm = FALSE
-)
+\method{confint}{brr}(replications, links = NA, level = 0.95, extra = FALSE)
 }
 \arguments{
-\item{replications}{BRR replications}
+\item{replications}{one or more sets of BRR replications}
 
 \item{level}{the confidence level required}
 
-\item{perturbation}{perturbation}
-
-\item{imputation}{Incorporate imputation variance due to plausible values. TRUE by default but can be disabled when there's only a single outcome.}
-
-\item{extra}{include standard error and variance components in the output}
+\item{extra}{include variance components in the output}
 }
 \description{
-Confidence intervals for model parameters of the balanced repeated model fit replications
+If \code{extra = TRUE}, output includes a confidence interval for each variance
+component. These intervals are cumulative: they include the uncertainty related to all previous
+components as well.
+
+If multiple sets of replications are passed to \code{confint}, confidence intervals for all sets
+except for the first (which acts as the reference) will include the error of both current set
+and reference set. This allows for easy calculation of the confidence intervals for comparisons
+between countries or between cycles.
+
+To use this functionality for comparisons between countries within a cycle, the \code{links}
+argument must be explicitly set to 0. (An alternative would be to subtract the replication
+estimates from one set from the other, which can be done using the arithmetic operator \code{-}, and
+to ask for a confidence interval for the resulting set using \code{confint(reps2 - reps1)}. The
+results that this produces are potentially more intuitive.)
+
+For comparisons between cycles, the link error for each comparison between the first set and
+subsequent sets must be provided by the user. This information is available as part of the
+official PISA reports.
 }

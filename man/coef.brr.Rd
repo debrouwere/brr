@@ -4,18 +4,15 @@
 \alias{coef.brr}
 \title{Extract model coefficients from the balanced repeated replications of a model fit}
 \usage{
-\method{coef}{brr}(replications, na_rm = FALSE, simplify = TRUE)
+\method{coef}{brr}(replications, final_weights = 1, simplify = TRUE)
 }
 \arguments{
 \item{replications}{BRR replications}
 
-\item{na_rm}{remove replications with NA estimates}
+\item{final_weights}{the weights index that represents the final weights (usually this is 1)}
 
 \item{simplify}{return a named vector instead of \code{tibble(term, estimate)}}
 }
 \description{
-The \code{na_rm} argument should be used sparingly because it may hide model or fit errors,
-but it can be particularly useful for repeated cross-sectional analyses of PISA data
-from 2000-now, allowing you to specify a model with 10 plausible values even though
-2000, 2003, 2006, 2009 and 2012 assessments only include 5.
+Extract model coefficients from the balanced repeated replications of a model fit
 }
