@@ -4,12 +4,23 @@
 \alias{confint.brr}
 \title{Confidence intervals for model parameters of the balanced repeated model fit replications}
 \usage{
-\method{confint}{brr}(replications, links = NA, level = 0.95, extra = FALSE)
+\method{confint}{brr}(
+  replications,
+  level = 0.95,
+  links = NA,
+  reference = last,
+  extra = FALSE
+)
 }
 \arguments{
 \item{replications}{one or more sets of BRR replications}
 
 \item{level}{the confidence level required}
+
+\item{links}{a vector of link errors, usually zero for the reference set and positive for all
+others}
+
+\item{reference}{a function that selects the reference set from among the sets of replications}
 
 \item{extra}{include variance components in the output}
 }
@@ -19,9 +30,9 @@ component. These intervals are cumulative: they include the uncertainty related 
 components as well.
 
 If multiple sets of replications are passed to \code{confint}, confidence intervals for all sets
-except for the first (which acts as the reference) will include the error of both current set
-and reference set. This allows for easy calculation of the confidence intervals for comparisons
-between countries or between cycles.
+except for the last one (or the one picked by the function provided to the \code{reference}
+argument) will include the error of both current set and reference set. This allows for easy
+calculation of the confidence intervals for comparisons between countries or between cycles.
 
 To use this functionality for comparisons between countries within a cycle, the \code{links}
 argument must be explicitly set to 0. (An alternative would be to subtract the replication
@@ -29,7 +40,7 @@ estimates from one set from the other, which can be done using the arithmetic op
 to ask for a confidence interval for the resulting set using \code{confint(reps2 - reps1)}. The
 results that this produces are potentially more intuitive.)
 
-For comparisons between cycles, the link error for each comparison between the first set and
-subsequent sets must be provided by the user. This information is available as part of the
+For comparisons between cycles, the link error for each comparison between the reference set
+and subsequent sets must be provided by the user. This information is available as part of the
 official PISA reports.
 }
