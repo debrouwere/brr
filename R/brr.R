@@ -164,7 +164,7 @@ interval <- function(estimate, variance, level) {
 #' Confidence intervals for model parameters of the balanced repeated model fit replications
 #'
 #' @param replications a set of BRR replications
-#' @param ... additional sets of BBR replications
+#' @param from_replications a list of zero or more additional sets of BBR replications
 #' @param level the confidence level required
 #' @param links a vector of link errors, usually zero for the reference set and positive for all
 #'   others
@@ -192,10 +192,7 @@ interval <- function(estimate, variance, level) {
 #'   `confint(reps2, reps1)`, although both are valid calculations.
 #'
 #' @export
-confint.brr <- function(replications, ..., level = 0.95, links = NA, simplify = TRUE, extra = FALSE) {
-  from_replications <- list2(...)
-  other_kwargs <- keep(names(from_replications), \(name) str_length(name) > 0)
-  if (!is.null(other_kwargs)) cli::cli_abort("unknown named arguments: {str_flatten_comma(other_kwargs)}")
+confint.brr <- function(replications, from_replications = list(), level = 0.95, links = NA, simplify = TRUE, extra = FALSE) {
   if (length(from_replications) == 0) from_replications <- list(replications)
 
   # there can be no link error within a single set of replications (unless explicitly demanded)
