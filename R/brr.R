@@ -1,5 +1,7 @@
 library("dplyr")
 library("tidyr")
+library("purrr")
+library("stringr")
 library("broom")
 library("broom.mixed")
 library("cli")
@@ -192,16 +194,20 @@ interval <- function(estimate, variance, level) {
 #' @export
 confint.brr <- function(replications, ..., level = 0.95, links = NA, simplify = TRUE, extra = FALSE) {
   from_replications <- list2(...)
+  other_kwargs <- keep(names(from_replications), \(name) str_length(name) > 0)
+  if (!is.null(other_kwargs)) cli_abort("unknown named arguments: {str_flatten_comma(other_kwargs)}")
   if (length(from_replications) == 0) from_replications <- list(replications)
 
   # there can be no link error within a single set of replications (unless explicitly demanded)
-  if(is.na(links) & length(from_replications) == 1) links <- 0.0
+  if(every(links, is.na) & length(from_replications) == 1) links <- 0.0
 
   if (length(from_replications) != length(links) & length(links) != 1) {
     cli_abort("{length(replications)} replications but only {length(links)} links")
   }
 
   status <- map_lgl(from_replications, \(rr) identical(rr, replications))
+  if (length(links) == 1) links <- rep(links, length(status))
+  if (some(links[status] > 0, is_true)) cli_warn("link error greater than zero for the reference set")
   reference <- VarCorr.brr(replications)
   variances <- map(from_replications, VarCorr.brr)
   comparisons <- pmap(list(variances, links, status), function(variance, link, is_reference) {
