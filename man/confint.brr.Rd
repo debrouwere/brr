@@ -5,16 +5,15 @@
 \title{Confidence intervals for model parameters of the balanced repeated model fit replications}
 \usage{
 \method{confint}{brr}(
-  replications,
+  ...,
   level = 0.95,
   links = NA,
   reference = last,
+  simplify = TRUE,
   extra = FALSE
 )
 }
 \arguments{
-\item{replications}{one or more sets of BRR replications}
-
 \item{level}{the confidence level required}
 
 \item{links}{a vector of link errors, usually zero for the reference set and positive for all
@@ -22,7 +21,11 @@ others}
 
 \item{reference}{a function that selects the reference set from among the sets of replications}
 
+\item{simplify}{if only a single set of replications is passed, do not wrap its intervals in a list}
+
 \item{extra}{include variance components in the output}
+
+\item{replications}{one or more sets of BRR replications}
 }
 \description{
 If \code{extra = TRUE}, output includes a confidence interval for each variance
@@ -43,4 +46,7 @@ results that this produces are potentially more intuitive.)
 For comparisons between cycles, the link error for each comparison between the reference set
 and subsequent sets must be provided by the user. This information is available as part of the
 official PISA reports.
+
+Passing multiple sets of replications without setting the \code{links} argument will result in \code{NA}
+confidence intervals.
 }

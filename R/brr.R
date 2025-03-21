@@ -3,6 +3,7 @@ library("tidyr")
 library("broom")
 library("broom.mixed")
 library("cli")
+library("rlang")
 
 is_tidy <- function(data) {
   is_tibble(data) & all(c("term", "estimate") %in% colnames(data))
@@ -164,6 +165,7 @@ interval <- function(estimate, variance, level) {
 #' @param links a vector of link errors, usually zero for the reference set and positive for all
 #'   others
 #' @param reference a function that selects the reference set from among the sets of replications
+#' @param simplify if only a single set of replications is passed, do not wrap its intervals in a list
 #' @param extra include variance components in the output
 #'
 #' @description If `extra = TRUE`, output includes a confidence interval for each variance
@@ -185,14 +187,12 @@ interval <- function(estimate, variance, level) {
 #'   and subsequent sets must be provided by the user. This information is available as part of the
 #'   official PISA reports.
 #'
+#'   Passing multiple sets of replications without setting the `links` argument will result in `NA`
+#'   confidence intervals.
+#'
 #' @export
-confint.brr <- function(replications, level = 0.95, links = NA, reference = last, extra = FALSE) {
-  if (is_brr(replications)) {
-    k <- 0
-    replications <- list(replications)
-  } else {
-    k <- length(replications)
-  }
+confint.brr <- function(..., level = 0.95, links = NA, reference = last, simplify = TRUE, extra = FALSE) {
+  replications <- list2(...)
 
   # there can be no link error within a single set of replications (unless explicitly demanded)
   if(is.na(links) & length(replications) == 1) links <- 0.0
@@ -230,7 +230,7 @@ confint.brr <- function(replications, level = 0.95, links = NA, reference = last
     })
   }
 
-  if (k == 0) {
+  if (simplify & length(replications) == 1) {
     margins[[1]]
   } else {
     margins
