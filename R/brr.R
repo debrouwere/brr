@@ -198,7 +198,7 @@ confint.brr <- function(replications, links = NA, level = 0.95, extra = FALSE) {
     cli_abort("{length(replications)} replications but only {length(links)} links")
   }
 
-  variances <- map(replications, VarCorr)
+  variances <- map(replications, VarCorr.brr)
   comparisons <- map2(variances, links, function(variance, link) {
     bind_cols(
       term = variance$term,
