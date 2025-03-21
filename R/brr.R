@@ -141,8 +141,8 @@ brr <- brrw <- function(formula, statistic, data, final_weights, replicate_weigh
 # format
 brr_split <- function(fits, final = 1) {
   list(
-    t = fits |> filter(weights == {{ final }}),
-    t0 = fits |> filter(weights != {{ final }})
+    t0 = fits |> filter(weights == {{ final }}),
+    t = fits |> filter(weights != {{ final }})
   )
 }
 

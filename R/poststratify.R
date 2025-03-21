@@ -309,7 +309,7 @@ collapse_strata <- function(strata, n_min = 10, strategy = "distance") {
     # with a big impact on the resulting weights would be preferable over a larger number of
     # merges with a smaller impact; anyhow this only applies to ties and we will always
     # try to merge with the most similar or most adjacent cell first
-    # 
+    #
     # another neat idea, but more complex, might be to partially merge with all tied cells
     right <- candidates_right |>
       filter(label != left$label, dissimilarity >= 1) |>
