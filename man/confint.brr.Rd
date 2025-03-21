@@ -5,27 +5,28 @@
 \title{Confidence intervals for model parameters of the balanced repeated model fit replications}
 \usage{
 \method{confint}{brr}(
+  replications,
   ...,
   level = 0.95,
   links = NA,
-  reference = last,
   simplify = TRUE,
   extra = FALSE
 )
 }
 \arguments{
+\item{replications}{a set of BRR replications}
+
+\item{...}{additional sets of BBR replications}
+
 \item{level}{the confidence level required}
 
 \item{links}{a vector of link errors, usually zero for the reference set and positive for all
 others}
 
-\item{reference}{a function that selects the reference set from among the sets of replications}
-
-\item{simplify}{if only a single set of replications is passed, do not wrap its intervals in a list}
+\item{simplify}{if only a single set of replications is passed, do not wrap its intervals in a
+list}
 
 \item{extra}{include variance components in the output}
-
-\item{replications}{one or more sets of BRR replications}
 }
 \description{
 If \code{extra = TRUE}, output includes a confidence interval for each variance
@@ -33,20 +34,16 @@ component. These intervals are cumulative: they include the uncertainty related 
 components as well.
 
 If multiple sets of replications are passed to \code{confint}, confidence intervals for all sets
-except for the last one (or the one picked by the function provided to the \code{reference}
-argument) will include the error of both current set and reference set. This allows for easy
-calculation of the confidence intervals for comparisons between countries or between cycles.
-
-To use this functionality for comparisons between countries within a cycle, the \code{links}
-argument must be explicitly set to 0. (An alternative would be to subtract the replication
-estimates from one set from the other, which can be done using the arithmetic operator \code{-}, and
-to ask for a confidence interval for the resulting set using \code{confint(reps2 - reps1)}. The
-results that this produces are potentially more intuitive.)
+except for the one in the first argument will include the error of both current set and
+reference set. This allows for easy calculation of the confidence intervals for comparisons
+between countries or between cycles.
 
 For comparisons between cycles, the link error for each comparison between the reference set
 and subsequent sets must be provided by the user. This information is available as part of the
 official PISA reports.
 
-Passing multiple sets of replications without setting the \code{links} argument will result in \code{NA}
-confidence intervals.
+For comparisons between countries (within a cycle), an alternative would be to subtract the
+replication estimates from one set from the other, which can be done using the arithmetic
+operator \code{-}, and to ask for a confidence interval for the resulting set using \code{confint(reps2 - reps1)}. The intervals of such a difference are potentially more intuitive than those from
+\code{confint(reps2, reps1)}, although both are valid calculations.
 }

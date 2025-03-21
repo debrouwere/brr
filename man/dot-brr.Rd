@@ -13,5 +13,6 @@
 }
 \description{
 Useful to compare scores between countries or between cycles when passed on to
-\code{confint}
+\code{confint}. If cycles with 5 plausible values are compared to cycles with 10 plausible values,
+only the first 5 plausible values will be retained.
 }

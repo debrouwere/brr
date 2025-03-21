@@ -136,7 +136,8 @@ VarCorr.brr <- function(replications, perturbation = 0.50, final_weights = 1) {
 #' @param e2 righthand set of replications
 #'
 #' @description Useful to compare scores between countries or between cycles when passed on to
-#'   `confint`
+#'   `confint`. If cycles with 5 plausible values are compared to cycles with 10 plausible values,
+#'   only the first 5 plausible values will be retained.
 #'
 #' @export
 `-.brr` <- function(e1, e2) {
@@ -160,12 +161,13 @@ interval <- function(estimate, variance, level) {
 
 #' Confidence intervals for model parameters of the balanced repeated model fit replications
 #'
-#' @param replications one or more sets of BRR replications
+#' @param replications a set of BRR replications
+#' @param ... additional sets of BBR replications
 #' @param level the confidence level required
 #' @param links a vector of link errors, usually zero for the reference set and positive for all
 #'   others
-#' @param reference a function that selects the reference set from among the sets of replications
-#' @param simplify if only a single set of replications is passed, do not wrap its intervals in a list
+#' @param simplify if only a single set of replications is passed, do not wrap its intervals in a
+#'   list
 #' @param extra include variance components in the output
 #'
 #' @description If `extra = TRUE`, output includes a confidence interval for each variance
@@ -173,43 +175,43 @@ interval <- function(estimate, variance, level) {
 #'   components as well.
 #'
 #'   If multiple sets of replications are passed to `confint`, confidence intervals for all sets
-#'   except for the last one (or the one picked by the function provided to the `reference`
-#'   argument) will include the error of both current set and reference set. This allows for easy
-#'   calculation of the confidence intervals for comparisons between countries or between cycles.
-#'
-#'   To use this functionality for comparisons between countries within a cycle, the `links`
-#'   argument must be explicitly set to 0. (An alternative would be to subtract the replication
-#'   estimates from one set from the other, which can be done using the arithmetic operator `-`, and
-#'   to ask for a confidence interval for the resulting set using `confint(reps2 - reps1)`. The
-#'   results that this produces are potentially more intuitive.)
+#'   except for the one in the first argument will include the error of both current set and
+#'   reference set. This allows for easy calculation of the confidence intervals for comparisons
+#'   between countries or between cycles.
 #'
 #'   For comparisons between cycles, the link error for each comparison between the reference set
 #'   and subsequent sets must be provided by the user. This information is available as part of the
 #'   official PISA reports.
 #'
-#'   Passing multiple sets of replications without setting the `links` argument will result in `NA`
-#'   confidence intervals.
+#'   For comparisons between countries (within a cycle), an alternative would be to subtract the
+#'   replication estimates from one set from the other, which can be done using the arithmetic
+#'   operator `-`, and to ask for a confidence interval for the resulting set using `confint(reps2 -
+#'   reps1)`. The intervals of such a difference are potentially more intuitive than those from
+#'   `confint(reps2, reps1)`, although both are valid calculations.
 #'
 #' @export
-confint.brr <- function(..., level = 0.95, links = NA, reference = last, simplify = TRUE, extra = FALSE) {
-  replications <- list2(...)
+confint.brr <- function(replications, ..., level = 0.95, links = NA, simplify = TRUE, extra = FALSE) {
+  from_replications <- list2(...)
+  if (length(from_replications) == 0) from_replications <- list(replications)
 
   # there can be no link error within a single set of replications (unless explicitly demanded)
-  if(is.na(links) & length(replications) == 1) links <- 0.0
+  if(is.na(links) & length(from_replications) == 1) links <- 0.0
 
-  if (length(replications) != length(links) & length(links) != 1) {
+  if (length(from_replications) != length(links) & length(links) != 1) {
     cli_abort("{length(replications)} replications but only {length(links)} links")
   }
 
-  variances <- map(replications, VarCorr.brr)
-  comparisons <- map2(variances, links, function(variance, link) {
+  status <- map_lgl(from_replications, \(rr) identical(rr, replications))
+  reference <- VarCorr.brr(replications)
+  variances <- map(from_replications, VarCorr.brr)
+  comparisons <- pmap(list(variances, links, status), function(variance, link, is_reference) {
     bind_cols(
       term = variance$term,
-      vc(variance) + as.integer(link != 0.0) * vc(reference(variances)),
+      vc(variance) + as.integer(!is_reference) * vc(reference),
       link = link^2,
     )
   })
-  means <- map(replications, \(rr) unname(coef.brr(rr)))
+  means <- map(from_replications, \(rr) unname(coef.brr(rr)))
   margins <- map2(comparisons, means, function(variance, means) {
     variance |>
       as_tibble() |>
@@ -230,7 +232,7 @@ confint.brr <- function(..., level = 0.95, links = NA, reference = last, simplif
     })
   }
 
-  if (simplify & length(replications) == 1) {
+  if (simplify & length(from_replications) == 1) {
     margins[[1]]
   } else {
     margins
