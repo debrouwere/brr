@@ -220,18 +220,21 @@ confint.brr <- function(replications, from_replications = list(), level = 0.95, 
       as_tibble() |>
       mutate(
         estimate = means,
-        link = interval(estimate, imputation + estimation + link, level),
-        estimation = interval(estimate, imputation + estimation, level),
-        imputation = interval(estimate, imputation, level)
+        error = tibble(
+          link = interval(estimate, imputation + estimation + link, level),
+          estimation = interval(estimate, imputation + estimation, level),
+          imputation = interval(estimate, imputation, level),
+          level = level,
+        )
       ) |>
-      select(term, estimate, imputation, estimation, link)
+      select(term, estimate, error)
   })
 
   if (!extra) {
     margins <- map(margins, function(m) {
       m |>
-        select(term, estimate, link) |>
-        unnest(link)
+        mutate(error = pluck(error, "link")) |>
+        unnest(error)
     })
   }
 
