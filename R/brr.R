@@ -199,7 +199,7 @@ confint.brr <- function(replications, from_replications = list(), level = 0.95, 
   if(every(links, is.na) & length(from_replications) == 1) links <- 0.0
 
   if (length(from_replications) != length(links) & length(links) != 1) {
-    cli::cli_abort("{length(replications)} replications but only {length(links)} links")
+    cli::cli_abort("{length(from_replications)} replications but only {length(links)} links")
   }
 
   status <- map_lgl(from_replications, \(rr) identical(rr, replications))
