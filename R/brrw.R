@@ -93,7 +93,7 @@ brrw <- function(formula, statistic, data, final_weights, replicate_weights, r =
     reframe(
       outcome = outcome,
       formula = formula,
-      weights = weights,
+      weights = dplyr::dense_rank(dplyr::desc(weights)),
       imputation = imputation,
       is_final = is_final,
       results = replicate_tidily(.data)
