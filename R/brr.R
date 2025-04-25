@@ -204,7 +204,7 @@ confint.brr <- function(replications, from_replications = list(), level = 0.95, 
 
   status <- map_lgl(from_replications, \(rr) identical(rr, replications))
   if (length(links) == 1) links <- rep(links, length(status))
-  if (some(links[status] > 0, rlang::is_true)) cli::cli_warn("link error greater than zero for the reference set")
+  if (purrr::some(links[status] > 0, rlang::is_true)) cli::cli_warn("link error greater than zero for the reference set")
   reference <- VarCorr.brr(replications)
   variances <- map(from_replications, VarCorr.brr)
   comparisons <- pmap(list(variances, links, status), function(variance, link, is_reference) {

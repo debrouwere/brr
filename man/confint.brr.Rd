@@ -6,7 +6,7 @@
 \usage{
 \method{confint}{brr}(
   replications,
-  ...,
+  from_replications = list(),
   level = 0.95,
   links = NA,
   simplify = TRUE,
@@ -16,7 +16,7 @@
 \arguments{
 \item{replications}{a set of BRR replications}
 
-\item{...}{additional sets of BBR replications}
+\item{from_replications}{a list of zero or more additional sets of BBR replications}
 
 \item{level}{the confidence level required}
 
