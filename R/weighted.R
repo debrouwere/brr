@@ -355,7 +355,7 @@ reliability_to_variance <- function(x, r, ...) {
 #'
 #' @export
 weighted_reliability_to_variance <- function(x, weights, r, ...) {
-  weighted_var(x, w, ...) * (1 - r)
+  weighted_var(x, weights, ...) * (1 - r)
 }
 
 
