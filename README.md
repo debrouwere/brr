@@ -178,20 +178,6 @@ df <- tibble(x=1:10, y=11:20, w=1 + 1:10/10, u=rep(1, 10), g=rep(c(1,2), each=5)
 weighted_aggregate(x + y ~ g, statistic=weighted_mean, data=df, weights=df$w)
 ```
 
-For convenience's sake, `weighted_aggregate(..., statistic=weighted_mean)` is
-available as `weighted_mean_by`.
-
-A very simple but very fast version that does not support subgroups is available
-as `pull_weighted_mean`, very useful if you have already divided the PISA
-dataset into subsets (by assessment, by country, ...) elsewhere:
-
-```
-results_by_country <- map(countries, function(country) {
-  data <- pisa |> filter(country_iso == country)
-  brr(pv1scie + pv2scie + pv3scie ~ 1, pull_weighted_mean, ...)
-})
-```
-
 
 ### Performance
 
