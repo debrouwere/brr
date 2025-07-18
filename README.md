@@ -249,7 +249,9 @@ box, but you can use `formulaic` on any weighted statistical function you need.
 
 ### Performance
 
-The `brr` package is not particularly fast, but also not particularly slow.
+Long format analyses with `brrl` (which will become the future default) are as
+fast or faster than alternative software such as EdSurvey, though the older
+interfaces such as `brrw` are slower.
 
 In PISA 2000 up to 2012, proper confidence intervals require 405 balanced
 repeated replications: for 5 plausible values and 80 replicate weights plus 1
