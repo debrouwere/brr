@@ -1,4 +1,5 @@
 library("tidyverse")
+library("vctrs")
 
 list_glue <- function(l) {
   map_if(l, is_character, \(v) as.character(list_c(map(v, str_glue))))
@@ -29,10 +30,9 @@ new_brr <- function(fits) {
 #' @param i number of imputations to to analyze, if only a subset of `data` should be used
 #' @param r number of replications to perform, if only a subset of `weights` should be used
 #' @param .progress show a progress bar
-#' @param ...
 #'
 #' @export
-brrl <- function(statistic, data, conditions, i = NULL, r = NULL, .progress = TRUE, .verbose = TRUE) {
+brrl <- function(statistic, data, conditions, i = NULL, r = NULL, .progress = TRUE) {
   conditions <- list_glue(conditions)
 
   r <- if (!is.null(r)) { r } else { length(conditions$weights) - 1 }
@@ -53,19 +53,15 @@ brrl <- function(statistic, data, conditions, i = NULL, r = NULL, .progress = TR
 
   tidy_statistic <- compose(tick, as_tidy, statistic)
 
-  replicate <- function(ixs, ...) {
-    list_rbind(map(weight_cols, function(weight_col) {
-      imputation <- slice(data, ixs)
+  replicate <- function(imputation) {
+    vec_rbind(!!!lapply(weight_cols, function(weight_col) {
       tidy_statistic(data = imputation, weights = imputation[[weight_col]])
-    }), names_to = 'weights')
+    }), .names_to = "weights")
   }
 
-  # NOTE: although this approach lends itself to parallelization, e.g. using
-  # `furrr::future_map` on each imputation, so much data is transferred
-  # (needlessly but unavoidably) that the performance gains are barely worth it
-  ixs_by_i <- data |> group_by(i) |> group_rows() |> head(n = m)
-  replications <- map(ixs_by_i, replicate) |>
-    list_rbind(names_to = 'imputation')
+  ixs_by_i <- vec_group_loc(data[["i"]])$loc |> head(n = m)
+  imputations <- vec_chop(data, ixs_by_i)
+  replications <- vec_rbind(!!!lapply(imputations, replicate), .names_to = "imputation")
 
   if (.progress) cli::cli_progress_done()
 

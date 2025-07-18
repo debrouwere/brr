@@ -4,15 +4,7 @@
 \alias{brrl}
 \title{Balanced repeated replications}
 \usage{
-brrl(
-  statistic,
-  data,
-  conditions,
-  i = NULL,
-  r = NULL,
-  .progress = TRUE,
-  .verbose = TRUE
-)
+brrl(statistic, data, conditions, i = NULL, r = NULL, .progress = TRUE)
 }
 \arguments{
 \item{statistic}{statistical function or fitter with signature \code{fitter(data, weights)}}
@@ -26,8 +18,6 @@ brrl(
 \item{r}{number of replications to perform, if only a subset of \code{weights} should be used}
 
 \item{.progress}{show a progress bar}
-
-\item{...}{}
 }
 \description{
 \code{brrl} allows multiple imputation of covariates (not just plausible values)
