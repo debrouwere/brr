@@ -192,60 +192,6 @@ results_by_country <- map(countries, function(country) {
 })
 ```
 
-### Functional helpers
-
-`brr` supports arbitrary fitters and statistical functions, but it does require
-them to adhere to a particular interface: `statistic(formula, data, weights,
-...)`. If your fitter has a different signature, you can always wrap it in
-another function that does, e.g.
-
-```r
-wrapped_fitter <- function(formula, data, weights, ...) {
-  gnarly(w=weights, d=data, fml=formula)
-}
-```
-
-The `brr` package also provides a couple of helper functions to cover common
-use-cases.
-
-The wrapper `redirect_weights` can be used to rename the `weights` argument
-and/or to pass weights as a column name instead of the actual data:
-
-```r
-# `brr::brr` passes a labeled weight vector to `statistic`, which we'll emulate here
-weights <- label_vector(pisa$w_math_fstuwt, 'w_math_fstuwt')
-
-# adapt a fitter that expects weights to be a column name
-lm_by_ref <- function(formula, data, weights) {
-  weights <- data[[weights]]
-  lm(formula, data, weights=weights)
-}
-
-redirect_weights(lm_by_ref, by_reference=TRUE)(pv1read ~ gender, data=pisa, weights=weights)
-
-# adapt a fitter that has a different argument name for weights
-lm_wt <- function(formula, data, wt) {
- lm(formula, data, weights=wt)
-}
-
-redirect_weights(lm_wt, name='wt')(pv1read ~ gender, data=pisa, weights=weights)
-```
-
-The wrapper `formulaic` can add a formula interface to simple statistical
-functions:
-
-```r
-# this function cannot used in `brr::brr` because it takes data and weight vectors
-# instead of a formula and data
-weighted_mean(pisa$pv1math, pisa$w_math_fstuwt)
-
-# ... but this one can be used in `brr::brr`!
-pull_weighted_mean <- formulaic(weighted_mean)
-weighted_mean(pv1math ~ 1, pisa, pisa$w_math_fstuwt)
-```
-
-The package includes `pull_weighted_mean` and `pull_weighted_median` out of the
-box, but you can use `formulaic` on any weighted statistical function you need.
 
 ### Performance
 
