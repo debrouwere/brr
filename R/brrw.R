@@ -89,11 +89,12 @@ brrw <- function(formula, statistic, data, final_weights, replicate_weights, r =
   replicate_tidily <- compose(tick, as_tidy, replicate)
 
   replications <- conditions |>
+    mutate(weights = dplyr::dense_rank(weights)) |>
     rowwise() |>
     reframe(
       outcome = outcome,
       formula = formula,
-      weights = dplyr::dense_rank(dplyr::desc(weights)),
+      weights = weights,
       imputation = imputation,
       is_final = is_final,
       results = replicate_tidily(.data)
